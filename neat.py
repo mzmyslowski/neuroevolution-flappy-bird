@@ -29,7 +29,6 @@ class Genome(object):
         connection_genes = []
         for sensor in self.node_genes['Sensor']:
             for output in self.node_genes['Output']:
-                self.increment_innovation_number()
                 connection_genes.append({
                     'In': sensor,
                     'Out': output,
@@ -48,18 +47,18 @@ class Genome(object):
         return connection_matrix
 
     @staticmethod
-    def get_innovation_id(in, out):
+    def get_innovation_id(in_neuron_id, out_neuron_id):
         hasInnovation = False
         innovation_number=-1
         for innovation in Genome.innovations:
-            if innovation['In']==in and innovation['Out']==out:
+            if innovation['In']==in_neuron_id and innovation['Out']==out_neuron_id:
                 hasInnovation=True
                 innovation_number=innovation['Innovation']
         if hasInnovation==False:
             Genome.global_innovation_number+=1
-            innovations.append({
-                'In': in,
-                'Out': out
+            Genome.innovations.append({
+                'In': in_neuron_id,
+                'Out': out_neuron_id,
                 'Innovation': Genome.global_innovation_number
             })
             innovation_number=Genome.global_innovation_number
@@ -67,44 +66,43 @@ class Genome(object):
 
 
     def mutate_add_connection(self):
-        in, out = self.get_random_unconnected_genes()
-        self.connection_matrix[in,out] = 1
-        self.increment_innovation_number()
+        in_neuron_id, out_neuron_id = self.get_random_unconnected_genes()
+        self.connection_matrix[in_neuron_id,out_neuron_id] = 1
         self.connection_genes.append({
-            'In': in,
-            'Out': out,
+            'In': in_neuron_id,
+            'Out': out_neuron_id,
             'Weight': random.gauss(0,1),
             'State': 'Enabled',
-            'Innovation': get_innovation_id(in,out),
+            'Innovation': Genome.get_innovation_id(in_neuron_id,out_neuron_id),
             'Iterated': False
         })
 
     def mutate_add_node(self):
-        in, out = self.get_random_connected_genes()
+        in_neuron_id, out_neuron_id = self.get_random_connected_genes()
         weight = -1
         for connection in self.connection_genes:
-            if connection['In']=in and connection['Out']==out:
+            if connection['In']==in_neuron_id and connection['Out']==out_neuron_id:
                 weight=connection['Weight']
-        innovation_number = int(self.connection_matrix[in,out])
+        innovation_number = int(self.connection_matrix[in_neuron_id,out_neuron_id])
         self.connection_genes[innovation_number-1]['State']='Disabled'
         new_connection_matrix = np.zeros((self.connection_matrix.shape[0]+1,self.connection_matrix.shape[1]+1))
         new_connection_matrix[:-1,:-1]=self.connection_matrix
 
         self.connection_genes.append({
-            'In': in,
+            'In': in_neuron_id,
             'Out': new_connection_matrix.shape[0]-1,
             'Weight': 1,
             'State': 'Enabled',
-            'Innovation': Genome.get_innovation_id(in, len(new_connection_matrix)-1),
+            'Innovation': Genome.get_innovation_id(in_neuron_id, len(new_connection_matrix)-1),
             'Iterated': False
         })
-        new_connection_matrix[self.connection_genes[-1]['In'],]self.connection_genes[-1]['Out']=self.connection_genes[-1]['Innovation']
+        new_connection_matrix[self.connection_genes[-1]['In'],self.connection_genes[-1]['Out']]=self.connection_genes[-1]['Innovation']
         self.connection_genes.append({
             'In': new_connection_matrix.shape[0]-1,
-            'Out': out,
-            'Weight': ,
+            'Out': out_neuron_id,
+            'Weight': weight,
             'State': 'Enabled',
-            'Innovation': Genome.get_innovation_id(new_connection_matrix.shape[0]-1,out),
+            'Innovation': Genome.get_innovation_id(new_connection_matrix.shape[0]-1,out_neuron_id),
             'Iterated': False
         })
         new_connection_matrix[self.connection_genes[-1]['In'],self.connection_genes[-1]['Out']]=self.connection_genes[-1]['Innovation']
@@ -261,8 +259,19 @@ class Neural_Network(object):
         return output
 
 
-for _ in range(50):
-    parent = Genome(2,1)
-    parent.mutate_add_node()
-    Neural_Network.forward([1,1],parent.connection_genes)
-    print(parent.i)
+#for _ in range(50):
+#    parent = Genome(2,1)
+#    parent.mutate_add_node()
+#    Neural_Network.forward([1,1],parent.connection_genes)
+#    print(parent.i)
+genome1=Genome(2,1)
+genome1.mutate_add_node()
+genome1.mutate_add_node()
+genome2=Genome(2,1)
+genome2.mutate_add_node()
+genome2.mutate_add_connection()
+print('\n\n')
+print(genome1.connection_genes)
+print('\n\n')
+print(genome2.connection_genes)
+print('\n\n')
