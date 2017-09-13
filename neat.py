@@ -12,6 +12,7 @@ class Genome(object):
         self.node_genes = self.__create_node_genes()
         self.connection_genes = self.__create_connection_genes()
         self.connection_matrix = self.__create_connection_matrix()
+        self.fitness = 0
 
     def __create_node_genes(self):
         node_genes = {
@@ -118,6 +119,9 @@ class Genome(object):
         random_index = np.random.randint(0, connected_indices.shape[0])
         return (connected_indices[random_index][0],connected_indices[random_index][1])
 
+    def increase_fitness(self):
+        self.fitness+=1
+
 
 class Offspring(Genome):
 
@@ -171,10 +175,17 @@ class Offspring(Genome):
             connection_matrix[connection['In'],connection['Out']]=connection['Innovation']
         return connection_matrix
 
-class Speciation(object):
+class Species(object):
+    species_list = []
+    c1 = 1.0
+    c2 = 1.0
+    c3 = 0.4
+    N = 1
+    threshold = 3.0
+
 
     @staticmethod
-    def measure_compatibility_distance(Genome1, Genome2, c1, c2, c3, N):
+    def measure_compatibility_distance(Genome1, Genome2):
         genome1_connection_genes = Genome1.connection_genes
         genome2_connection_genes = Genome2.connection_genes
         excess = 0
@@ -206,15 +217,27 @@ class Speciation(object):
                 i+=1
                 j+=1
 
-        return c1*excess/N + c2*disjoint/N + c3*weight_difference/matching
+        return Species.c1*excess/Species.N + Species.c2*disjoint/Species.N + Species.c3*weight_difference/matching
 
     @staticmethod
-    def compute_adjusted_fitness(organism, species, threshold, c1, c2, c3, N):
+    def compute_adjusted_fitness(organism, species):
         adjusted_fitness = organism.fitness
         denominator = 0
         for other_organism in species:
-            denominator = 0 if Speciation.measure_compatibility_distance(organism, other_organism, c1, c2, c3, N) > threshold else 0
+            denominator = 0 if Speciation.measure_compatibility_distance(organism, other_organism) > Species.threshold else 0
         return adjusted_fitness/denominator
+
+    @staticmethod
+    def assign_genome_to_spieces(genome):
+        create_new_species=True
+        for species in Species.species_list:
+            if Species.compute_adjusted_fitness(genome, species) < threshold:
+                create_new_species=False
+                species.append(genome)
+                break
+        if create_new_species==True:
+            Species.species_list.append([genome])
+
 
 class Neural_Network(object):
 
