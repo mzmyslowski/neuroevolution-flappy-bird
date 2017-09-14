@@ -281,20 +281,14 @@ class Neural_Network(object):
                 connection['Iterated']=True
         return output
 
-
-#for _ in range(50):
-#    parent = Genome(2,1)
-#    parent.mutate_add_node()
-#    Neural_Network.forward([1,1],parent.connection_genes)
-#    print(parent.i)
-genome1=Genome(2,1)
-genome1.mutate_add_node()
-genome1.mutate_add_node()
-genome2=Genome(2,1)
-genome2.mutate_add_node()
-genome2.mutate_add_connection()
-print('\n\n')
-print(genome1.connection_genes)
-print('\n\n')
-print(genome2.connection_genes)
-print('\n\n')
+#gen = Genome(3,1)
+#weights=[]
+#inputs=[35,174, 287]
+#for connection in gen.connection_genes:
+#    weights.append(connection['Weight'])
+#    print(connection['Weight'])
+#sum1=0
+#for x, weight in zip(inputs, weights):
+#    sum1+=x*weight
+#print(Neural_Network.forward(inputs, gen.connection_genes))
+#print(Neural_Network.modified_sigmoid(sum1))

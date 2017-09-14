@@ -1,4 +1,4 @@
-import random, pygame, sys
+import random, pygame, sys, neat
 from pygame.locals import *
 
 FPS = 30
@@ -9,7 +9,8 @@ SPACEBETWEENPIPES = 200
 PIPESSPAWNED = 4
 POPULATION_SIZE = 1
 GRAVITY = 1
-JUMP_VELOCITY = -9
+#JUMP_VELOCITY = -9
+JUMP_VELOCITY = -1
 PIPEVELOCITY = 3
 RED, BLUE, YELLOW = ('red', 'blue', 'yellow')
 BIRDS_COLORS = (RED, BLUE, YELLOW)
@@ -82,7 +83,8 @@ def prepare():
             'rect': pygame.Rect((WINDOWWIDTH-RED_BIRD_IMAGE.get_width())/2,\
             (WINDOWHEIGHT-RED_BIRD_IMAGE.get_height())/2,RED_BIRD_IMAGE.get_width(),RED_BIRD_IMAGE.get_height()),
             'alive': True,
-            'velocity': 1
+            'velocity': 1,
+            'genome': neat.Genome(3,1)
         })
 
 
@@ -100,10 +102,8 @@ def prepare():
 
 def play():
     BIRDS_WINGS_STATE = UP
-    SPACE_CLICKED = False
     while True:
         DISPLAYSURF.blit(BACKGROUND,(0,0))
-        SPACE_CLICKED=False
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
@@ -112,33 +112,18 @@ def play():
                 if event.key == pygame.K_SPACE:
                     POPULATION[0]['velocity']+=JUMP_VELOCITY
                     POPULATION[0]['rect'].y+=JUMP_VELOCITY
-                    SPACE_CLICKED=True
+
+        moveBirds()
 
         BIRDS_WINGS_STATE = changeBirdsWingsState(BIRDS_WINGS_STATE)
-        if animateBirds(BIRDS_WINGS_STATE)==True:
+
+        if animateBirds(BIRDS_WINGS_STATE)==False:
             return
 
-        for i in range(PIPESSPAWNED):
-            DISPLAYSURF.blit(PIPES[i]['image_down'],(PIPES[i]['down_rect'].x,PIPES[i]['down_rect'].y))
-            DISPLAYSURF.blit(PIPES[i]['image_up'],(PIPES[i]['up_rect'].x,PIPES[i]['up_rect'].y))
-            if PIPES[i]['up_rect'].x<=-PIPE_UP_IMAGE.get_width():
-                PIPES[i]['up_rect'].x= PIPES[(i+PIPESSPAWNED-1)%PIPESSPAWNED]['up_rect'].x+SPACEBETWEENPIPES
-                PIPES[i]['down_rect'].x= PIPES[(i+PIPESSPAWNED-1)%PIPESSPAWNED]['down_rect'].x+SPACEBETWEENPIPES
-                random_y = random.randint(-PIPE_UP_IMAGE.get_height()/2,-15)
-                PIPES[i]['up_rect'].y=random_y
-                PIPES[i]['down_rect'].y=random_y+PIPE_UP_IMAGE.get_height()+PIPEGAPSIZE
-            PIPES[i]['up_rect'].x -= PIPEVELOCITY
-            PIPES[i]['down_rect'].x -= PIPEVELOCITY
+        animatePipes()
 
-
-        for bird in POPULATION:
-            bird_rect = bird['rect']
-            for pipe in PIPES:
-                PIPE_UP_IMAGE_rect = pipe['up_rect']
-                PIPE_DOWN_IMAGE_rect = pipe['down_rect']
-                if bird_rect.colliderect(PIPE_UP_IMAGE_rect) or bird_rect.colliderect(PIPE_DOWN_IMAGE_rect):
-                    return
-
+        if doesBirdCollide()==True:
+            return
 
         pygame.display.update()
         FPSCLOCK.tick(FPS)
@@ -166,9 +151,61 @@ def animateBirds(birds_wings_state):
         if not (bird['rect'].colliderect(BASE_RECT)):
                 bird['velocity']+=GRAVITY
                 bird['rect'].y+=bird['velocity']
-                return False
+                return True
         else:
-            return True
+            return False
+
+def moveBirds():
+    count=0
+    for bird in POPULATION:
+        nearest_pipe = getNearestPipe(bird)
+        print(getDistanceToPipe(bird,nearest_pipe),getYOfPipeGap(nearest_pipe),bird['rect'].y)
+        for connection in bird['genome'].connection_genes:
+            print(connection['Weight'])
+        probabilityOfJump=neat.Neural_Network.forward([getDistanceToPipe(bird,nearest_pipe),getYOfPipeGap(nearest_pipe),bird['rect'].y],bird['genome'].connection_genes)
+        print(probabilityOfJump)
+        if probabilityOfJump>=0.5:
+            jump(bird)
+
+def jump(bird):
+    bird['velocity']+=JUMP_VELOCITY
+    bird['rect'].y+=JUMP_VELOCITY
+def animatePipes():
+    for i in range(PIPESSPAWNED):
+        DISPLAYSURF.blit(PIPES[i]['image_down'],(PIPES[i]['down_rect'].x,PIPES[i]['down_rect'].y))
+        DISPLAYSURF.blit(PIPES[i]['image_up'],(PIPES[i]['up_rect'].x,PIPES[i]['up_rect'].y))
+        if PIPES[i]['up_rect'].x<=-PIPE_UP_IMAGE.get_width():
+            PIPES[i]['up_rect'].x= PIPES[(i+PIPESSPAWNED-1)%PIPESSPAWNED]['up_rect'].x+SPACEBETWEENPIPES
+            PIPES[i]['down_rect'].x= PIPES[(i+PIPESSPAWNED-1)%PIPESSPAWNED]['down_rect'].x+SPACEBETWEENPIPES
+            random_y = random.randint(-PIPE_UP_IMAGE.get_height()/2,-15)
+            PIPES[i]['up_rect'].y=random_y
+            PIPES[i]['down_rect'].y=random_y+PIPE_UP_IMAGE.get_height()+PIPEGAPSIZE
+        PIPES[i]['up_rect'].x -= PIPEVELOCITY
+        PIPES[i]['down_rect'].x -= PIPEVELOCITY
+
+def doesBirdCollide():
+    collide=False
+    for bird in POPULATION:
+        bird_rect = bird['rect']
+        for pipe in PIPES:
+            if bird_rect.colliderect(pipe['up_rect']) or bird_rect.colliderect(pipe['down_rect']):
+                collide=True
+    return collide
+
+def getNearestPipe(bird):
+    nearest_pipe_x = sys.maxsize
+    nearest_pipe=PIPES[0]
+    for pipe in PIPES:
+        if pipe['up_rect'].x + pipe['up_rect'].width < nearest_pipe_x and bird['rect'].x < pipe['up_rect'].x + pipe['up_rect'].width:
+            nearest_pipe_x = pipe['up_rect'].x
+            nearest_pipe=pipe
+    return nearest_pipe
+
+def getDistanceToPipe(bird, pipe):
+    return pipe['up_rect'].x-bird['rect'].x
+
+def getYOfPipeGap(pipe):
+    return pipe['up_rect'].height+pipe['up_rect'].y
 
 
 if __name__=='__main__':
