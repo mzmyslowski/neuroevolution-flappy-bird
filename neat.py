@@ -162,9 +162,8 @@ class Offspring(Genome):
         self.connection_genes = []
         parent1_connection_genes = Parent1.connection_genes
         parent2_connection_genes = Parent2.connection_genes
-        min_length = min([len(parent1_connection_genes),len(parent2_connection_genes)])
         i, j = (0,0)
-        while i < min_length and j < min_length:
+        while i < len(parent1_connection_genes) and j < len(parent2_connection_genes):
             # In this situation we either have matching genes or disjoint genes
             if parent1_connection_genes[i]['innovation']==parent2_connection_genes[j]['innovation']:
                 # Now we are hadnling matching genes, choosing randomly one of them
@@ -183,12 +182,21 @@ class Offspring(Genome):
                 # We are taking disjoint gene from parent2
                 self.connection_genes.append(parent2_connection_genes[j])
                 j+=1
-        if i<len(parent1_connection_genes):
-            # We have some excess genes in Parent1
-            self.connection_genes.extend(parent1_connection_genes[i:len(parent1_connection_genes)])
-        if j<len(parent2_connection_genes):
-            # We have some excess genes in Parent2
-            self.connection_genes.extend(parent2_connection_genes[j:len(parent2_connection_genes)])
+
+        max_innovation_number = self.connection_genes[-1]['innovation']
+
+        while i<len(parent1_connection_genes):
+            parent1_connection_gene = parent1_connection_genes[i]
+            if parent1_connection_gene['innovation']>max_innovation_number:
+                self.connection_genes.append(parent1_connection_gene)
+            i+=1
+
+        while j<len(parent2_connection_genes):
+            parent2_connection_gene = parent2_connection_genes[j]
+            if parent2_connection_gene['innovation']>max_innovation_number:
+                self.connection_genes.append(parent2_connection_gene)
+            j+=1
+
 
     def init_connection_matrix(self):
         max_value = self.getMaxValueInConnectionGenesIds()
@@ -202,7 +210,6 @@ class Offspring(Genome):
         max_value = self.getMaxValueInConnectionGenesIds() + 1
         start=self.number_of_sensor_units+self.number_of_output_units
         for i in range(start, max_value):
-            print(i)
             self.add_node()
 
 
@@ -359,10 +366,8 @@ print(gen1_phenotype.forward([35,174, 287]))
 print(gen2_phenotype.forward([35,174, 287]))
 
 kid = Offspring(gen1, gen2)
-#kid_phenotype = Neural_Network(kid)
-print(kid.node_genes)
-print(kid.connection_genes)
-#print(kid_phenotype.forward([35,174, 287]))
+kid_phenotype = Neural_Network(kid)
+print(kid_phenotype.forward([35,174, 287]))
 #print(gen1.node_genes)
 #print(gen1.connection_genes)
 #print('\n')
