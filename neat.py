@@ -2,26 +2,26 @@ import random
 import numpy as np
 
 class Genome(object):
+    # Here we initialize static innovations list
+    # and static innovation number
     innovations = []
     global_innovation_number = 0
-    # sensor_units can be found in connection_genes simply using number_of_sensor_units
-    # way to output_units can be found following by order fields 'In' and 'Out' in connection_genes
+
     def __init__(self, number_of_sensor_units, number_of_output_units):
         self.number_of_sensor_units = number_of_sensor_units
         self.number_of_output_units = number_of_output_units
 
         self.__init_node_genes()
+        self.__init_connection_genes()
 
-        self.connection_genes = self.__create_connection_genes()
-        self.connection_matrix = self.__create_connection_matrix()
         self.fitness = 0
 
     def __init_node_genes(self):
         self.node_genes = []
         for i in range(self.number_of_sensor_units):
-            self.mutate_add_node(i, 'sensor')
+            self.mutate_add_node('sensor', i)
         for i in range(self.number_of_output_units, elf.number_of_sensor_units+self.number_of_output_units)
-            self.mutate_add_node(i, 'output')
+            self.add_node('output', i)
 
     def __init_connection_genes(self):
         self.connection_genes = []
@@ -31,33 +31,54 @@ class Genome(object):
             if node1['type']=='sensor':
                 for node2 in self.node_genes:
                     if node2['type']=='output':
-                        self.mutate_add_connection(node1['id'], node2['id'])
+                        self.add_connection(node1['id'], node2['id'])
         # We now ensure that there will be no more direct connections
         # between input and output nodes
         for other in np.argwhere(self.connection_matrix==0):
             self.connection_matrix[other[0],other[1]]=-1
 
 
-    def mutate_add_node(self, node_id, node_type='hidden'):
-        self.node_genes.append({
-            'id': node_id,
+    def add_node(self, node_type='hidden', node_id=None):
+        new_node = {
+            'id': len(self.node_genes)-1 if node_id == None else node_id,
             'type': node_type,
             'innovation': Genome.get_innovation_id(type='node_gene',id=node_id)
-        })
+        }
+        self.node_genes.append(new_node)
+        return new_node
 
-    def mutate_add_connection(self, in_node_id out_node_id):
+    def add_connection(self, in_node_id, out_node_id, weight=None):
         innovation_number = Genome.get_innovation_id(type='connection', in_node_id=in_node_id, out_node_id=out_node_id)
-        self.connection_genes.append({
+        new_connection = {
             'in': in_node_id,
             'out': out_node_id,
-            'weight': self.getRandomWeight(),
-            'State': 'Enabled',
+            'weight': self.getRandomWeight() if weight == None else weight,
+            'state': 'enabled',
             'innovation': innovation_number
         })
+        self.connection_genes.append(new_connection)
         self.connection_matrix[in_node_id,out_node_id] = innovation_number
+        return new_connection
 
-    def mutate_add_node_and_split_connection(self):
-        
+    def mutate_add_node(self):
+        in_node_id, out_node_id = self.get_random_connected_genes()
+
+        connection_to_split_weight = -1
+        for connection in self.connection_genes:
+            if connection['in']==in_node_id and connection['out']==out_node_id:
+                connection_to_split_weight=connection['weight']
+                connection['state']= 'disabled'
+
+        new_connection_matrix = np.zeros((self.connection_matrix.shape[0]+1,self.connection_matrix.shape[1]+1))
+        new_connection_matrix[:-1,:-1]=self.connection_matrix
+
+        new_node = self.add_node()
+        self.add_connection(in_node_id, new_node['in'], 1)
+        self.add_connection(new_node['out'], out_node_id, connection_to_split_weight)
+
+    def mutate_add_connection(self):
+        in_node_id, out_node_id = self.get_random_unconnected_genes()
+        self.add_connection(in_node_id, out_node_id)
 
     def get_random_unconnected_genes(self):
         connected_indices = np.argwhere(self.connection_matrix==0)
