@@ -33,7 +33,7 @@ class Genome(object):
                 connection_genes.append({
                     'In': sensor,
                     'Out': output,
-                    'Weight': random.gauss(0,1),
+                    'Weight': self.getRandomWeight(),
                     'State': 'Enabled',
                     'Innovation': Genome.get_innovation_id(sensor, output),
                     'Iterated': False
@@ -45,6 +45,8 @@ class Genome(object):
         connection_matrix = np.zeros((matrix_dim,matrix_dim))
         for connection in self.connection_genes:
             connection_matrix[connection['In'],connection['Out']]=connection['Innovation']
+        for other in np.argwhere(connection_matrix==0):
+            connection_matrix[other[0],other[1]]=-1
         return connection_matrix
 
     @staticmethod
@@ -67,25 +69,29 @@ class Genome(object):
 
 
     def mutate_add_connection(self):
-        in_neuron_id, out_neuron_id = self.get_random_unconnected_genes()
-        self.connection_matrix[in_neuron_id,out_neuron_id] = 1
-        self.connection_genes.append({
-            'In': in_neuron_id,
-            'Out': out_neuron_id,
-            'Weight': random.gauss(0,1),
-            'State': 'Enabled',
-            'Innovation': Genome.get_innovation_id(in_neuron_id,out_neuron_id),
-            'Iterated': False
-        })
+        if np.argwhere(self.connection_matrix==0).shape[0]!=0:
+            # We can add some connection, because there are some unconnected nodes
+            in_neuron_id, out_neuron_id = self.get_random_unconnected_genes()
+            self.connection_genes.append({
+                'In': in_neuron_id,
+                'Out': out_neuron_id,
+                'Weight': self.getRandomWeight(),
+                'State': 'Enabled',
+                'Innovation': Genome.get_innovation_id(in_neuron_id,out_neuron_id),
+                'Iterated': False
+            })
+            self.connection_matrix[in_neuron_id,out_neuron_id] = Genome.get_innovation_id(in_neuron_id,out_neuron_id)
+
 
     def mutate_add_node(self):
         in_neuron_id, out_neuron_id = self.get_random_connected_genes()
         weight = -1
+
         for connection in self.connection_genes:
             if connection['In']==in_neuron_id and connection['Out']==out_neuron_id:
                 weight=connection['Weight']
-        innovation_number = int(self.connection_matrix[in_neuron_id,out_neuron_id])
-        self.connection_genes[innovation_number-1]['State']='Disabled'
+                connection['State']='Disabled'
+
         new_connection_matrix = np.zeros((self.connection_matrix.shape[0]+1,self.connection_matrix.shape[1]+1))
         new_connection_matrix[:-1,:-1]=self.connection_matrix
 
@@ -115,12 +121,16 @@ class Genome(object):
         return (connected_indices[random_index][0],connected_indices[random_index][1])
 
     def get_random_connected_genes(self):
-        connected_indices = np.argwhere(self.connection_matrix!=0)
+        connected_indices = np.argwhere((self.connection_matrix!=0) & (self.connection_matrix!=-1))
         random_index = np.random.randint(0, connected_indices.shape[0])
         return (connected_indices[random_index][0],connected_indices[random_index][1])
 
     def increase_fitness(self):
         self.fitness+=1
+
+
+    def getRandomWeight(self):
+        return np.random.randn()*np.sqrt(2.0/self.number_of_sensor_units)
 
 
 class Offspring(Genome):
@@ -270,6 +280,8 @@ class Neural_Network(object):
                 else:
                     local_output = Neural_Network.compute_neuron(x, connection_genes, connection['Out'])
                     x.append(Neural_Network.modified_sigmoid(local_output))
+        for connection in connection_genes:
+            connection['Iterated']=False
         return Neural_Network.modified_sigmoid(output)
 
     @staticmethod
@@ -277,6 +289,10 @@ class Neural_Network(object):
         output=0
         for connection in connection_genes:
             if connection['Out']==output_index:
+                if len(x)==connection['In']:
+                    print(connection_genes)
+                    print('\n')
+                    print(connection)
                 output+=x[connection['In']]*connection['Weight']
                 connection['Iterated']=True
         return output

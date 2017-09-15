@@ -67,15 +67,6 @@ def main():
     PIPE_DOWN_IMAGE = pygame.image.load(PIPES_LIST[1])
     PIPE_UP_IMAGE = pygame.transform.rotate(PIPE_DOWN_IMAGE, 180)
 
-
-    while True:
-        prepare()
-        play()
-
-def prepare():
-    global POPULATION, PIPES
-    POPULATION = []
-    PIPES = []
     for i in range(POPULATION_SIZE):
         POPULATION.append({
             'number': i,
@@ -87,7 +78,14 @@ def prepare():
             'genome': neat.Genome(3,1)
         })
 
+    while True:
+        prepare()
+        play()
 
+def prepare():
+    global PIPES
+    PIPES = []
+    
     for i in range(PIPESSPAWNED):
         random_y = random.randint(-PIPE_UP_IMAGE.get_height()/2,-15)
         PIPES.append({
@@ -159,17 +157,22 @@ def moveBirds():
     count=0
     for bird in POPULATION:
         nearest_pipe = getNearestPipe(bird)
-        print(getDistanceToPipe(bird,nearest_pipe),getYOfPipeGap(nearest_pipe),bird['rect'].y)
-        for connection in bird['genome'].connection_genes:
-            print(connection['Weight'])
+        #print(getDistanceToPipe(bird,nearest_pipe),getYOfPipeGap(nearest_pipe),bird['rect'].y)
+        #for connection in bird['genome'].connection_genes:
+        #    print(connection['Weight'])
         probabilityOfJump=neat.Neural_Network.forward([getDistanceToPipe(bird,nearest_pipe),getYOfPipeGap(nearest_pipe),bird['rect'].y],bird['genome'].connection_genes)
-        print(probabilityOfJump)
+        #print(probabilityOfJump)
         if probabilityOfJump>=0.5:
             jump(bird)
+        if random.uniform(0,1)<=0.05:
+            bird['genome'].mutate_add_connection()
+        if random.uniform(0,1)<=0.03:
+            bird['genome'].mutate_add_node()
 
 def jump(bird):
     bird['velocity']+=JUMP_VELOCITY
     bird['rect'].y+=JUMP_VELOCITY
+
 def animatePipes():
     for i in range(PIPESSPAWNED):
         DISPLAYSURF.blit(PIPES[i]['image_down'],(PIPES[i]['down_rect'].x,PIPES[i]['down_rect'].y))
