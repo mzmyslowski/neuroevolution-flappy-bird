@@ -85,8 +85,8 @@ class Genome(object):
 
     def get_random_unconnected_genes(self):
         # We get indices of unconnected nodes
-        # with an exception of of sensor_units
-        # being treated as out
+        # with an exception that sensor_units
+        # can't be treate as out units
         connected_indices = np.argwhere(self.connection_matrix[:,self.number_of_sensor_units:]==0)
         if len(connected_indices)==0:
             return None
@@ -199,9 +199,10 @@ class Offspring(Genome):
 
     def init_node_genes(self):
         super(Offspring, self).init_node_genes()
-        max_value = self.getMaxValueInConnectionGenesIds()
+        max_value = self.getMaxValueInConnectionGenesIds() + 1
         start=self.number_of_sensor_units+self.number_of_output_units
         for i in range(start, max_value):
+            print(i)
             self.add_node()
 
 
@@ -228,22 +229,22 @@ class Species(object):
         while i < len(genome1_connection_genes) or j < len(genome2_connection_genes):
             if i<len(genome1_connection_genes) and j<len(genome2_connection_genes):
                 # Now we have either matching or disjoint genes
-                if genome1_connection_genes[i]['Innovation']<genome2_connection_genes[j]['Innovation']:
+                if genome1_connection_genes[i]['innovation']<genome2_connection_genes[j]['innovation']:
                     # We have disjoint genes in genome1
                     disjoint+=1
                     i+=1
-                elif genome2_connection_genes[j]['Innovation']<genome1_connection_genes[i]['Innovation']:
+                elif genome2_connection_genes[j]['innovation']<genome1_connection_genes[i]['innovation']:
                     # We have disjoint genes in genome2
                     disjoint+=1
                     j+=1
                 else:
                     # Now we have matching genes
-                    weight_difference = (genome1_connection_genes[i]['Weight']-genome2_connection_genes[j]['Weight'])**2
+                    weight_difference = (genome1_connection_genes[i]['weight']-genome2_connection_genes[j]['weight'])
                     matching+=1
                     i+=1
                     j+=1
             else:
-                # Now we only have disjoint genes
+                # Now we only have excess genes
                 excess+=1
                 i+=1
                 j+=1
@@ -272,66 +273,115 @@ class Species(object):
 
 class Neural_Network(object):
 
+    def __init__(self, genome):
+        self.init_neurons(genome)
+        self.init_connections(genome.connection_genes)
+
+    def init_connections(self, connection_genes):
+        self.connections = []
+        for connection_gene in connection_genes:
+            if connection_gene['state']=='enabled':
+                neuron_in=self.findNeuronById(connection_gene['in'])
+                neuron_out=self.findNeuronById(connection_gene['out'])
+                new_connection = {
+                    'in': neuron_in,
+                    'out': neuron_out,
+                    'weight': connection_gene['weight']
+                }
+                self.connections.append(new_connection)
+                neuron_in['connectionsOut'].append(new_connection)
+                neuron_out['connectionsIn'].append(new_connection)
+
+
+    def init_neurons(self, genome):
+        self.neurons = []
+        for node in genome.node_genes:
+            self.neurons.append(self.create_neuron(node))
+
+
+    def create_neuron(self, node):
+        new_neuron = {
+            'id': node['id'],
+            'type': node['type'],
+            'connectionsIn': [],
+            'connectionsOut': [],
+            'sumToActivate': 0,
+            'output': 0
+        }
+        return new_neuron
+
+    def findNeuronById(self, neuron_id):
+        for neuron in self.neurons:
+            if neuron['id']==neuron_id:
+                return neuron
+
+    def forward(self, x):
+        # We first set the output of sensor neurons
+        # to be equal to x, we assume that
+        # sensor units are first
+        current_neuron_id = 0
+
+        while self.neurons[current_neuron_id]['type']=='sensor':
+            self.neurons[current_neuron_id]['output']=x[current_neuron_id]
+            current_neuron_id+=1
+
+        outputs = []
+
+        while current_neuron_id<len(self.neurons):
+            sumToActivate = 0
+            current_neuron = self.neurons[current_neuron_id]
+            for connectionIn in current_neuron['connectionsIn']:
+                weight = connectionIn['weight']
+                neuronOutput = connectionIn['in']['output']
+                sumToActivate+= weight * neuronOutput
+
+            # Not sure if this works
+            current_neuron['output']=self.modified_sigmoid(sumToActivate)
+
+            if current_neuron['type']=='output':
+                outputs.append(current_neuron['output'])
+
+            current_neuron_id+=1
+
+        return outputs
+
     @staticmethod
     def modified_sigmoid(x):
         return 1/(1+np.exp(-4.9*x))
 
-    @staticmethod
-    def forward(input, connection_genes):
-        x=input
-        x.append(-1)
-        output_index=len(x)-1
-        output=0
-        for connection in connection_genes:
-            if connection['Iterated']==False and connection['State']=='Enabled':
-                if connection['Out']==output_index:
-                    output+=connection['Weight']*x[connection['In']]
-                    connection['Iterated']=True
-                else:
-                    local_output = Neural_Network.compute_neuron(x, connection_genes, connection['Out'])
-                    x.append(Neural_Network.modified_sigmoid(local_output))
-        for connection in connection_genes:
-            connection['Iterated']=False
-        return Neural_Network.modified_sigmoid(output)
-
-    @staticmethod
-    def compute_neuron(x, connection_genes, output_index):
-        output=0
-        for connection in connection_genes:
-            if connection['Out']==output_index:
-                if len(x)==connection['In']:
-                    print(connection_genes)
-                    print('\n')
-                    print(connection)
-                output+=x[connection['In']]*connection['Weight']
-                connection['Iterated']=True
-        return output
-
-gen1 = Genome(2,1)
-gen2 = Genome(2,1)
+gen1 = Genome(3,1)
+gen2 = Genome(3,1)
 gen1.mutate_add_node()
 gen2.mutate_add_node()
+gen1_phenotype = Neural_Network(gen1)
+gen2_phenotype = Neural_Network(gen2)
+print(gen1_phenotype.forward([35,174, 287]))
+print(gen2_phenotype.forward([35,174, 287]))
+
 kid = Offspring(gen1, gen2)
-print(gen1.node_genes)
-print(gen1.connection_genes)
-print('\n')
-print(gen2.node_genes)
-print(gen2.connection_genes)
-print('\n')
+#kid_phenotype = Neural_Network(kid)
 print(kid.node_genes)
 print(kid.connection_genes)
-#print(kid.connection_genes)
+#print(kid_phenotype.forward([35,174, 287]))
+#print(gen1.node_genes)
+#print(gen1.connection_genes)
+#print('\n')
+#print(gen2.node_genes)
+#print(gen2.connection_genes)
+#print('\n')
 #print(kid.node_genes)
 #print(kid.connection_genes)
-#print(kid.connection_matrix)
-#gen = Genome(3,1)
-#weights=[]
+gen = Genome(3,1)
+gen_phenotype = Neural_Network(gen)
+#print(gen_phenotype.neurons)
 #inputs=[35,174, 287]
+#print(gen_phenotype.forward(inputs))
+#print('\n')
+#weights=[]
 #for connection in gen.connection_genes:
-#    weights.append(connection['Weight'])
-#    print(connection['Weight'])
+#    weights.append(connection['weight'])
+#    print(connection['weight'])
 #sum1=0
 #for x, weight in zip(inputs, weights):
 #    sum1+=x*weight
-#print(Neural_Network.forward(inputs, gen.connection_genes))
 #print(Neural_Network.modified_sigmoid(sum1))
