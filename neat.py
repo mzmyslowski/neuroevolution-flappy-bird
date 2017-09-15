@@ -9,111 +9,55 @@ class Genome(object):
     def __init__(self, number_of_sensor_units, number_of_output_units):
         self.number_of_sensor_units = number_of_sensor_units
         self.number_of_output_units = number_of_output_units
-        self.node_genes = self.__create_node_genes()
+
+        self.__init_node_genes()
+
         self.connection_genes = self.__create_connection_genes()
         self.connection_matrix = self.__create_connection_matrix()
         self.fitness = 0
 
-    def __create_node_genes(self):
-        node_genes = {
-            'Sensor': [],
-            'Hidden': [],
-            'Output': []
-        }
+    def __init_node_genes(self):
+        self.node_genes = []
         for i in range(self.number_of_sensor_units):
-            node_genes['Sensor'].append(i)
-        for i in range(self.number_of_sensor_units,self.number_of_sensor_units+self.number_of_output_units):
-            node_genes['Output'].append(i)
-        return node_genes
+            self.mutate_add_node(i, 'sensor')
+        for i in range(self.number_of_output_units, elf.number_of_sensor_units+self.number_of_output_units)
+            self.mutate_add_node(i, 'output')
 
-    def __create_connection_genes(self):
-        connection_genes = []
-        for sensor in self.node_genes['Sensor']:
-            for output in self.node_genes['Output']:
-                connection_genes.append({
-                    'In': sensor,
-                    'Out': output,
-                    'Weight': self.getRandomWeight(),
-                    'State': 'Enabled',
-                    'Innovation': Genome.get_innovation_id(sensor, output),
-                    'Iterated': False
-                })
-        return connection_genes
-
-    def __create_connection_matrix(self):
-        matrix_dim = self.number_of_sensor_units*self.number_of_output_units+1
-        connection_matrix = np.zeros((matrix_dim,matrix_dim))
-        for connection in self.connection_genes:
-            connection_matrix[connection['In'],connection['Out']]=connection['Innovation']
-        for other in np.argwhere(connection_matrix==0):
-            connection_matrix[other[0],other[1]]=-1
-        return connection_matrix
-
-    @staticmethod
-    def get_innovation_id(in_neuron_id, out_neuron_id):
-        hasInnovation = False
-        innovation_number=-1
-        for innovation in Genome.innovations:
-            if innovation['In']==in_neuron_id and innovation['Out']==out_neuron_id:
-                hasInnovation=True
-                innovation_number=innovation['Innovation']
-        if hasInnovation==False:
-            Genome.global_innovation_number+=1
-            Genome.innovations.append({
-                'In': in_neuron_id,
-                'Out': out_neuron_id,
-                'Innovation': Genome.global_innovation_number
-            })
-            innovation_number=Genome.global_innovation_number
-        return innovation_number
+    def __init_connection_genes(self):
+        self.connection_genes = []
+        dim = number_of_sensor_units*number_of_output_units
+        self.connection_matrix = np.zeros((dim,dim))
+        for node1 in self.node_genes:
+            if node1['type']=='sensor':
+                for node2 in self.node_genes:
+                    if node2['type']=='output':
+                        self.mutate_add_connection(node1['id'], node2['id'])
+        # We now ensure that there will be no more direct connections
+        # between input and output nodes
+        for other in np.argwhere(self.connection_matrix==0):
+            self.connection_matrix[other[0],other[1]]=-1
 
 
-    def mutate_add_connection(self):
-        if np.argwhere(self.connection_matrix==0).shape[0]!=0:
-            # We can add some connection, because there are some unconnected nodes
-            in_neuron_id, out_neuron_id = self.get_random_unconnected_genes()
-            self.connection_genes.append({
-                'In': in_neuron_id,
-                'Out': out_neuron_id,
-                'Weight': self.getRandomWeight(),
-                'State': 'Enabled',
-                'Innovation': Genome.get_innovation_id(in_neuron_id,out_neuron_id),
-                'Iterated': False
-            })
-            self.connection_matrix[in_neuron_id,out_neuron_id] = Genome.get_innovation_id(in_neuron_id,out_neuron_id)
-
-
-    def mutate_add_node(self):
-        in_neuron_id, out_neuron_id = self.get_random_connected_genes()
-        weight = -1
-
-        for connection in self.connection_genes:
-            if connection['In']==in_neuron_id and connection['Out']==out_neuron_id:
-                weight=connection['Weight']
-                connection['State']='Disabled'
-
-        new_connection_matrix = np.zeros((self.connection_matrix.shape[0]+1,self.connection_matrix.shape[1]+1))
-        new_connection_matrix[:-1,:-1]=self.connection_matrix
-
-        self.connection_genes.append({
-            'In': in_neuron_id,
-            'Out': new_connection_matrix.shape[0]-1,
-            'Weight': 1,
-            'State': 'Enabled',
-            'Innovation': Genome.get_innovation_id(in_neuron_id, len(new_connection_matrix)-1),
-            'Iterated': False
+    def mutate_add_node(self, node_id, node_type='hidden'):
+        self.node_genes.append({
+            'id': node_id,
+            'type': node_type,
+            'innovation': Genome.get_innovation_id(type='node_gene',id=node_id)
         })
-        new_connection_matrix[self.connection_genes[-1]['In'],self.connection_genes[-1]['Out']]=self.connection_genes[-1]['Innovation']
+
+    def mutate_add_connection(self, in_node_id out_node_id):
+        innovation_number = Genome.get_innovation_id(type='connection', in_node_id=in_node_id, out_node_id=out_node_id)
         self.connection_genes.append({
-            'In': new_connection_matrix.shape[0]-1,
-            'Out': out_neuron_id,
-            'Weight': weight,
+            'in': in_node_id,
+            'out': out_node_id,
+            'weight': self.getRandomWeight(),
             'State': 'Enabled',
-            'Innovation': Genome.get_innovation_id(new_connection_matrix.shape[0]-1,out_neuron_id),
-            'Iterated': False
+            'innovation': innovation_number
         })
-        new_connection_matrix[self.connection_genes[-1]['In'],self.connection_genes[-1]['Out']]=self.connection_genes[-1]['Innovation']
-        self.connection_matrix = new_connection_matrix
+        self.connection_matrix[in_node_id,out_node_id] = innovation_number
+
+    def mutate_add_node_and_split_connection(self):
+        
 
     def get_random_unconnected_genes(self):
         connected_indices = np.argwhere(self.connection_matrix==0)
@@ -128,9 +72,36 @@ class Genome(object):
     def increase_fitness(self):
         self.fitness+=1
 
-
     def getRandomWeight(self):
         return np.random.randn()*np.sqrt(2.0/self.number_of_sensor_units)
+
+    @staticmethod
+    def get_innovation_id(type, id=None, in_node_id=None, out_node_id=None):
+        hasInnovation = False
+        innovation_number = -1
+        for innovation in Genome.innovations:
+            if innovation['type']=='node' and innovation['id']=id:
+                hasInnovation=True
+                innovation_number=innovation['innovation_number']
+            elif: innovation['type']=='connection' and innovation['in']=in and innovation['out']=out:
+                hasInnovation=True
+                innovation_number=innovation['innovation_number']
+        if hasInnovation==False:
+            Genome.global_innovation_number+=1
+            innovation_number = Genome.global_innovation_number
+            if innovation['type']=='node':
+                Genome.innovations.append([
+                    'type': 'node',
+                    'innovation_number': innovation_number
+                ])
+            else:
+                Genome.innovations.append({
+                    'type': 'connection',
+                    'in': in,
+                    'out': out,
+                    'innovation_number': innovation_number
+                })
+        return innovation_number
 
 
 class Offspring(Genome):

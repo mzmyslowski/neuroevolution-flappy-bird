@@ -85,7 +85,7 @@ def main():
 def prepare():
     global PIPES
     PIPES = []
-    
+
     for i in range(PIPESSPAWNED):
         random_y = random.randint(-PIPE_UP_IMAGE.get_height()/2,-15)
         PIPES.append({
@@ -164,6 +164,9 @@ def moveBirds():
         #print(probabilityOfJump)
         if probabilityOfJump>=0.5:
             jump(bird)
+
+def mutateBirds():
+    for bird in POPULATION:
         if random.uniform(0,1)<=0.05:
             bird['genome'].mutate_add_connection()
         if random.uniform(0,1)<=0.03:
