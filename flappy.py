@@ -62,6 +62,7 @@ class Bird(pygame.sprite.Sprite):
         self.genome = genome
         self.phenotype = neat.Neural_Network(self.genome)
         self.bird_wings_state = UP
+        self.passed_pipe=False
 
     def update(self):
         if self.alive==True:
@@ -76,9 +77,17 @@ class Bird(pygame.sprite.Sprite):
             if self.rect.colliderect(nearest_pipe[0].rect) or self.rect.colliderect(nearest_pipe[1].rect):
                 self.alive=False
                 Bird.alive_count-=1
-            if nearest_pipe[0].pass_pipe_rect.x<=self.rect.x:
+
+            # Since bird is not a point (has width)
+            # we ensure that colliderect fires
+            # only once per pipe
+            if nearest_pipe[0].rect.x - self.rect.x > Pipe.space_between_pipes / 2:
+                self.passed_pipe=False
+
+            if self.rect.colliderect(nearest_pipe[0].pass_pipe_rect) and self.passed_pipe==False:
+                self.passed_pipe=True
                 self.genome.increase_fitness()
-        nearest_pipe = Pipe.getNearestPipe(self.rect.x)
+                print(self.genome.fitness)
 
     def jump(self):
         self.velocity+=Bird.jump_velocity
@@ -147,7 +156,7 @@ class Pipe(pygame.sprite.Sprite):
 
         self.rect.x=Pipe.last_pipe_x
 
-        self.pass_pipe_rect = pygame.Rect(self.rect.x+self.rect.width,0,0,WINDOWHEIGHT)
+        self.pass_pipe_rect = pygame.Rect(self.rect.x+self.rect.width,0,1,WINDOWHEIGHT)
 
         if Pipe.pipes_count / 2 % PIPESSPAWNED == 0:
             Pipe.last_pipe_in_row_x = self.rect.x - WINDOWWIDTH - self.rect.width
@@ -177,14 +186,19 @@ class Pipe(pygame.sprite.Sprite):
     def getNearestPipe(x):
         nearest_pipe_x = sys.maxsize
         pipes_list = PIPES.sprites()
-        nearest_pipe=[]
+        nearest_pipes=[]
         for pipe in pipes_list:
             if (pipe.rect.x + pipe.rect.width <= nearest_pipe_x and x <= pipe.rect.x + pipe.rect.width) or (pipe.rect.x==nearest_pipe_x):
-                if len(nearest_pipe)==2:
-                    nearest_pipe=[]
+                # If length of nearest_pipes is eqaul to 2 and
+                # above if statement evaluates to True
+                # then it means we have 2 more
+                # closer pipes (up and down) and
+                # we need just them
+                if len(nearest_pipes)==2:
+                    nearest_pipes=[]
                 nearest_pipe_x = pipe.rect.x
-                nearest_pipe.append(pipe)
-        return nearest_pipe
+                nearest_pipes.append(pipe)
+        return nearest_pipes
 
     @staticmethod
     def getDistanceToPipe(x, pipe):
