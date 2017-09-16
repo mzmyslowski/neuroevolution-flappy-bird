@@ -5,7 +5,7 @@ FPS = 30
 WINDOWWIDTH = 288
 WINDOWHEIGHT = 512
 PIPESSPAWNED = 4
-POPULATION_SIZE = 50
+POPULATION_SIZE = 1
 RED, BLUE, YELLOW = ('red', 'blue', 'yellow')
 BIRDS_COLORS = (RED, BLUE, YELLOW)
 UP, MID, DOWN = ('up', 'mid', 'down')
@@ -64,7 +64,7 @@ class Bird(pygame.sprite.Sprite):
         self.bird_wings_state = UP
 
     def update(self):
-        if self.alive:
+        if self.alive==True:
             self.moveBird()
             self.animateBirdImage()
             self.velocity+=Bird.gravity
@@ -72,10 +72,14 @@ class Bird(pygame.sprite.Sprite):
             if self.rect.colliderect(BASE_RECT):
                 self.alive=False
                 Bird.alive_count-=1
-            for pipe in PIPES:
-                if self.rect.colliderect(pipe.rect):
-                    self.alive=False
-                    Bird.alive_count-=1
+            nearest_pipe = Pipe.getNearestPipe(self.rect.x)
+            if self.rect.colliderect(nearest_pipe[0].rect) or self.rect.colliderect(nearest_pipe[1].rect):
+                self.alive=False
+                Bird.alive_count-=1
+            if nearest_pipe[0].pass_pipe_rect.x<=self.rect.x:
+                self.genome.increase_fitness()
+        nearest_pipe = Pipe.getNearestPipe(self.rect.x)
+
     def jump(self):
         self.velocity+=Bird.jump_velocity
         self.rect.y+=Bird.jump_velocity
@@ -98,7 +102,7 @@ class Bird(pygame.sprite.Sprite):
             return UP
 
     def moveBird(self):
-        nearest_pipe = Pipe.getNearestPipe(self.rect.x)
+        nearest_pipe = Pipe.getNearestPipe(self.rect.x)[0]
         distanceToPipe = Pipe.getDistanceToPipe(self.rect.x, nearest_pipe)
         yOfPipeGap = Pipe.getYOfPipeGap(nearest_pipe)
         probabilityOfJump=self.phenotype.forward([distanceToPipe,yOfPipeGap,self.rect.y])
@@ -143,6 +147,8 @@ class Pipe(pygame.sprite.Sprite):
 
         self.rect.x=Pipe.last_pipe_x
 
+        self.pass_pipe_rect = pygame.Rect(self.rect.x+self.rect.width,0,0,WINDOWHEIGHT)
+
         if Pipe.pipes_count / 2 % PIPESSPAWNED == 0:
             Pipe.last_pipe_in_row_x = self.rect.x - WINDOWWIDTH - self.rect.width
             Pipe.last_pipe_in_row_y = self.getRandomYForPipe()
@@ -157,7 +163,7 @@ class Pipe(pygame.sprite.Sprite):
                 self.rect.y -= self.rect.height+Pipe.pipe_gap_size
                 Pipe.last_pipe_in_row_x = self.rect.x - Pipe.space_between_pipes
                 Pipe.last_pipe_in_row_y = self.getRandomYForPipe()
-
+        self.pass_pipe_rect.x=self.rect.x+self.rect.width
 
 
 
@@ -171,11 +177,13 @@ class Pipe(pygame.sprite.Sprite):
     def getNearestPipe(x):
         nearest_pipe_x = sys.maxsize
         pipes_list = PIPES.sprites()
-        nearest_pipe=pipes_list[0]
+        nearest_pipe=[]
         for pipe in pipes_list:
-            if pipe.rect.x + pipe.rect.width < nearest_pipe_x and x < pipe.rect.x + pipe.rect.width:
+            if (pipe.rect.x + pipe.rect.width <= nearest_pipe_x and x <= pipe.rect.x + pipe.rect.width) or (pipe.rect.x==nearest_pipe_x):
+                if len(nearest_pipe)==2:
+                    nearest_pipe=[]
                 nearest_pipe_x = pipe.rect.x
-                nearest_pipe=pipe
+                nearest_pipe.append(pipe)
         return nearest_pipe
 
     @staticmethod
