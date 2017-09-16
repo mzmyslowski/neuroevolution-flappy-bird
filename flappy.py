@@ -121,6 +121,7 @@ class Pipe(pygame.sprite.Sprite):
     last_pipe_y = 0
     last_pipe_x = WINDOWWIDTH - space_between_pipes
     last_pipe_in_row_x = 0
+    last_pipe_in_row_y = 0
 
     def __init__(self, pipe_type):
         super().__init__()
@@ -129,7 +130,7 @@ class Pipe(pygame.sprite.Sprite):
         self.pipe_type = pipe_type
 
         self.image = pygame.image.load(PIPES_LIST[1]).convert()
-        if pipe_type == DOWN:
+        if pipe_type == UP:
             self.image = pygame.transform.rotate(self.image, 180)
 
         self.rect = self.image.get_rect()
@@ -140,20 +141,25 @@ class Pipe(pygame.sprite.Sprite):
             Pipe.last_pipe_y = self.getRandomYForPipe()
             self.rect.y = Pipe.last_pipe_y+self.rect.height+Pipe.pipe_gap_size
 
-
         self.rect.x=Pipe.last_pipe_x
 
-        if Pipe.pipes_count % PIPESSPAWNED == 0:
-            Pipe.last_pipe_in_row_x = self.rect.x
+        if Pipe.pipes_count / 2 % PIPESSPAWNED == 0:
+            Pipe.last_pipe_in_row_x = self.rect.x - WINDOWWIDTH - self.rect.width
+            Pipe.last_pipe_in_row_y = self.getRandomYForPipe()
 
     def update(self):
         self.updatePipesCount()
-        #if self.rect.x<=-self.rect.width:
-        #    self.rect.x = Pipe.last_pipe_in_row_x+Pipe.space_between_pipes
-        #    if self.pipe_type==DOWN:
-        #            Pipe.last_pipe_in_row_x = self.rect.x
-        #    self.setPipeRandomY()
         self.rect.x -= Pipe.pipes_velocity
+        if self.rect.x<=-self.rect.width:
+            self.rect.x = Pipe.last_pipe_in_row_x + Pipe.space_between_pipes
+            self.rect.y = Pipe.last_pipe_in_row_y + self.rect.height+Pipe.pipe_gap_size
+            if Pipe.pipes_count % 2 - 1 != 0:
+                self.rect.y -= self.rect.height+Pipe.pipe_gap_size
+                Pipe.last_pipe_in_row_x = self.rect.x - Pipe.space_between_pipes
+                Pipe.last_pipe_in_row_y = self.getRandomYForPipe()
+
+
+
 
     def getRandomYForPipe(self):
         return random.randint(-self.rect.height/2,-15)
@@ -202,9 +208,10 @@ def main():
 def prepare():
     for _ in range(POPULATION_SIZE):
         POPULATION.add(Bird(PLAYERS_DICT[RED][UP], neat.Genome(3,1)))
-    for _ in range(PIPESSPAWNED):
+    for i in range(PIPESSPAWNED):
+        PIPES.add(Pipe(DOWN,))
         PIPES.add(Pipe(UP))
-        PIPES.add(Pipe(DOWN))
+
 
 def play():
     while True:
