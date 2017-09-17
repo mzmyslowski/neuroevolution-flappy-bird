@@ -245,7 +245,7 @@ def epoch():
     len_sum = 0
     for species in neat.Species.species_list:
         len_sum+=len(species)
-    #print(len_sum)
+    print(len_sum)
     neat.Species.assign_species_representatives()
     for bird in POPULATION.sprites():
         neat.Species.assign_genome_to_spieces(bird.genome)
