@@ -19,6 +19,7 @@ UP, MID, DOWN = ('up', 'mid', 'down')
 WINGS_DIRECTIONS = (UP, MID, DOWN)
 POPULATION = pygame.sprite.Group()
 PIPES = pygame.sprite.Group()
+epochs_count=0
 
 # dictionary of players and their states
 PLAYERS_DICT = {
@@ -54,14 +55,9 @@ PIPES_LIST = (
 class Bird(pygame.sprite.Sprite):
 
     alive_count = 0
-    bird_jump_count = 0
-    bird_not_jump_count = 0
-    #global_bird_id = 0
 
     def __init__(self, image_path, genome):
         super().__init__()
-        #Bird.global_bird_id+=1
-        #self.bird_id=Bird.global_bird_id
         Bird.alive_count+=1
         self.image = pygame.image.load(image_path).convert()
         self.rect = self.image.get_rect()
@@ -69,7 +65,7 @@ class Bird(pygame.sprite.Sprite):
         self.rect.y = (WINDOWHEIGHT-self.rect.height)/2
         self.alive = True
         self.velocity = 1
-        self.genome = neat.Genome(NUMBEROFINPUTS,NUMBEROFOUTPUTS,self.bird_id)
+        self.genome = genome
         self.phenotype = neat.Neural_Network(self.genome)
         self.bird_wings_state = UP
         self.passed_pipe = False
@@ -129,16 +125,8 @@ class Bird(pygame.sprite.Sprite):
         distanceToPipe = Pipe.getDistanceToPipe(self.rect.x, nearest_pipe)
         yOfPipeGap = Pipe.getYOfPipeGap(nearest_pipe)
         probabilityOfJump=self.phenotype.forward([distanceToPipe,yOfPipeGap,self.rect.y])
-        if Bird.bird_jump_count + Bird.bird_not_jump_count == POPULATION_SIZE:
-            Bird.bird_jump_count = 0
-            Bird.bird_not_jump_count = 0
         if probabilityOfJump[0]>=0.5:
-            Bird.bird_jump_count+=1
-            print('Has jumped: ', Bird.bird_jump_count)
             self.jump()
-        else:
-            Bird.bird_not_jump_count+=1
-            print('Hasn\'t jumped: ', Bird.bird_not_jump_count)
 
 class Pipe(pygame.sprite.Sprite):
     pipes_count = 0
@@ -237,12 +225,12 @@ def main():
     spawn_birds()
     while True:
         spawn_pipes()
-        reset_birds()
         play()
+        epoch()
 
 def spawn_birds():
     for _ in range(POPULATION_SIZE):
-        bird = Bird(PLAYERS_DICT[RED][UP]
+        bird = Bird(PLAYERS_DICT[RED][UP],neat.Genome(NUMBEROFINPUTS,NUMBEROFOUTPUTS))
         POPULATION.add(bird)
         neat.Species.assign_genome_to_spieces(bird.genome)
 
@@ -254,24 +242,19 @@ def spawn_pipes():
         PIPES.add(Pipe(UP))
 
 def epoch():
-    reset_bird_static_var()
+    len_sum = 0
+    for species in neat.Species.species_list:
+        len_sum+=len(species)
+    #print(len_sum)
     neat.Species.assign_species_representatives()
     for bird in POPULATION.sprites():
         neat.Species.assign_genome_to_spieces(bird.genome)
     neat.Species.adjustFitnesses()
     neat.Species.computeHowManyOffspringToSpawn()
-
-
-
-
-def reset_bird(bird):
-    bird.rect.x = (WINDOWWIDTH-bird.rect.width)/2
-    bird.rect.y = (WINDOWHEIGHT-bird.rect.height)/2
-    bird.alive=True
-    bird.velocity=1
-    bird.bird_wings_state = UP
-    bird.passed_pipe=False
-    bird.genome.fitness = 0
+    new_genomes = neat.Species.getNewGenomes(POPULATION_SIZE)
+    POPULATION.empty()
+    for genome in new_genomes:
+        POPULATION.add(Bird(PLAYERS_DICT[RED][UP],genome))
 
 def reset_pipe_static_var():
     Pipe.pipes_count = 0
@@ -279,10 +262,6 @@ def reset_pipe_static_var():
     Pipe.last_pipe_x = WINDOWWIDTH - SPACEBETWEENPIPES
     Pipe.last_pipe_in_row_x = 0
     Pipe.last_pipe_in_row_y = 0
-
-def reset_bird_static_var():
-    Bird.alive_count = POPULATION_SIZE
-
 
 def play():
     while True:
