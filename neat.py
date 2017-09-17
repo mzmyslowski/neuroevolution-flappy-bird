@@ -6,8 +6,11 @@ class Genome(object):
     # and static innovation number
     innovations = []
     global_innovation_number = 0
+    global_genomes_id = 0
 
     def __init__(self, number_of_sensor_units, number_of_output_units):
+        Genome.global_genomes_id+=1
+        self.genome_id = Genome.global_genomes_id
         self.number_of_sensor_units = number_of_sensor_units
         self.number_of_output_units = number_of_output_units
 
@@ -216,11 +219,14 @@ class Offspring(Genome):
 
 class Species(object):
     species_list = []
+    species_average_adjusted_fitness_list = []
+    species_offspring_to_spawn = []
     c1 = 1.0
     c2 = 1.0
     c3 = 0.4
     N = 1
     threshold = 3.0
+    crossover_rate = 0.75
 
 
     @staticmethod
@@ -259,24 +265,86 @@ class Species(object):
         return Species.c1*excess/Species.N + Species.c2*disjoint/Species.N + Species.c3*weight_difference/matching
 
     @staticmethod
-    def compute_adjusted_fitness(organism, species):
-        adjusted_fitness = organism.fitness
-        denominator = 0
-        for other_organism in species:
-            denominator = 0 if Speciation.measure_compatibility_distance(organism, other_organism) > Species.threshold else 0
-        return adjusted_fitness/denominator
+    def compute_adjusted_fitness(genome, species_length):
+        return genome.fitness/species_length
 
     @staticmethod
     def assign_genome_to_spieces(genome):
         create_new_species=True
         for species in Species.species_list:
-            if Species.compute_adjusted_fitness(genome, species) < threshold:
+            if Species.measure_compatibility_distance(genome, species[0]) < threshold:
                 create_new_species=False
                 species.append(genome)
                 break
         if create_new_species==True:
             Species.species_list.append([genome])
 
+    @staticmethod
+    def select_species_representatives():
+        selected_representatives = []
+        for species in species_list:
+            best = species[0]
+            for genome in species:
+                if best.fitness < genome.fitness:
+                    best = genome
+            selected_representatives.append([best])
+        return selected_representatives
+
+    @staticmethod
+    def assign_species_representatives():
+        Species.species_list = Species.selected_representatives()
+
+    @staticmethod
+    def adjustFitnesses():
+        Species.species_average_adjusted_fitness_list = []
+        for species in Species.species_list:
+            adjusted_fitness_sum=0
+            for genome in species:
+                genome.fitness=Species.compute_adjusted_fitness(genome, len(species))
+                adjusted_fitness_sum+=genome.ftiness
+            Species.species_average_adjusted_fitness_list.append(adjusted_fitness_sum/len(species))
+
+    @staticmethod
+    def computeHowManyOffspringToSpawn():
+        Species.species_offspring_to_spawn = []
+        for species, average in zip(Species.species_list, species_average_adjusted_fitness_list):
+            species_offspring_to_spawn_sum = 0
+            for genome in species:
+                species_offspring_to_spawn_sum += genome.fitness/average
+            Species.species_offspring_to_spawn.append(species_offspring_to_spawn_sum)
+
+    @staticmethod
+    def getNewGenomes():
+        new_genomes = []
+        for species, offspring_to_spawn in zip(Species.species_list,Species.species_offspring_to_spawn):
+            offspring_to_spawn = int(round(offspring_to_spawn))
+            offspring = species[0]
+            best_choosed=True
+            while offspring_to_spawn!=0:
+                if best_choosed==False and len(species)!=1:
+                    random_genome_1 = Species.getRandomGenomeFromSpecies(species)
+                    if random.uniform(0,1) < Species.crossover_rate:
+                        try_to_mate_times = 5
+                        random_genome_2 = Species.getRandomGenomeFromSpecies(species)
+                        while random_genome_1.genome_id==random_genome_2.genome_id and try_to_mate_times!=0:
+                            random_genome_2 = Species.getRandomGenomeFromSpecies(species)
+                        if random_genome_1.genome_id!=random_genome_2.genome_id:
+                            offspring=Offspring(random_genome_1,random_genome_2)
+                        else:
+                            offspring=random_genome_1
+                    else:
+                        offspring=random_genome_1
+
+                    if random.uniform(0,1)<=0.05:
+                        offspring.mutate_add_connection()
+                    if random.uniform(0,1)<=0.03:
+                        offspring.mutate_add_node()
+                    
+
+
+    @staticmethod
+    def getRandomGenomeFromSpecies(species):
+        return species[randint(0,len(species)-1)]
 
 class Neural_Network(object):
 
@@ -355,39 +423,3 @@ class Neural_Network(object):
     @staticmethod
     def modified_sigmoid(x):
         return 1/(1+np.exp(-4.9*x))
-
-#gen1 = Genome(3,1)
-#gen2 = Genome(3,1)
-#gen1.mutate_add_node()
-#gen2.mutate_add_node()
-#gen2.mutate_add_node()
-#gen2.mutate_add_node()
-#gen1_phenotype = Neural_Network(gen1)
-#gen2_phenotype = Neural_Network(gen2)
-#print(gen1_phenotype.forward([35,174, 287]))
-#print(gen2_phenotype.forward([35,174, 287]))
-#kid = Offspring(gen1, gen2)
-#kid_phenotype = Neural_Network(kid)
-#print(kid_phenotype.forward([35,174, 287]))
-#print(gen1.node_genes)
-#print(gen1.connection_genes)
-#print('\n')
-#print(gen2.node_genes)
-#print(gen2.connection_genes)
-#print('\n')
-#print(kid.node_genes)
-#print(kid.connection_genes)
-#gen = Genome(3,1)
-#gen_phenotype = Neural_Network(gen)
-#print(gen_phenotype.neurons)
-#inputs=[35,174, 287]
-#print(gen_phenotype.forward(inputs))
-#print('\n')
-#weights=[]
-#for connection in gen.connection_genes:
-#    weights.append(connection['weight'])
-#    print(connection['weight'])
-#sum1=0
-#for x, weight in zip(inputs, weights):
-#    sum1+=x*weight
-#print(Neural_Network.modified_sigmoid(sum1))

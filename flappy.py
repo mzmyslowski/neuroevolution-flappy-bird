@@ -11,7 +11,9 @@ PIPEGAPSIZE  = 100
 PIPESVELOCITY = 3
 JUMP_VELOCITY = -1
 GRAVITY = 1
-RED, BLUE, YELLOW = ('red', 'blue', 'yellow')
+NUMBEROFINPUTS = 3
+NUMBEROFOUTPUTS = 1
+RED, BLUE, YELLOW = 'red', 'blue', 'yellow'
 BIRDS_COLORS = (RED, BLUE, YELLOW)
 UP, MID, DOWN = ('up', 'mid', 'down')
 WINGS_DIRECTIONS = (UP, MID, DOWN)
@@ -54,38 +56,44 @@ class Bird(pygame.sprite.Sprite):
     alive_count = 0
     bird_jump_count = 0
     bird_not_jump_count = 0
+    #global_bird_id = 0
 
     def __init__(self, image_path, genome):
         super().__init__()
+        #Bird.global_bird_id+=1
+        #self.bird_id=Bird.global_bird_id
         Bird.alive_count+=1
         self.image = pygame.image.load(image_path).convert()
         self.rect = self.image.get_rect()
         self.rect.x = (WINDOWWIDTH-self.rect.width)/2
         self.rect.y = (WINDOWHEIGHT-self.rect.height)/2
-        self.alive=True
-        self.velocity=1
-        self.genome = genome
+        self.alive = True
+        self.velocity = 1
+        self.genome = neat.Genome(NUMBEROFINPUTS,NUMBEROFOUTPUTS,self.bird_id)
         self.phenotype = neat.Neural_Network(self.genome)
         self.bird_wings_state = UP
-        self.passed_pipe=False
+        self.passed_pipe = False
 
     def update(self):
-        if self.alive==True:
+        if self.alive == True:
             self.moveBird()
             self.animateBirdImage()
             self.velocity+=GRAVITY
             self.rect.y+=self.velocity
             if self.rect.colliderect(BASE_RECT):
-                self.alive=False
-                Bird.alive_count-=1
+                self.alive = False
+                Bird.alive_count -= 1
             nearest_pipe = Pipe.getNearestPipe(self.rect.x)
             if self.rect.colliderect(nearest_pipe[0].rect) or self.rect.colliderect(nearest_pipe[1].rect):
                 self.alive=False
                 Bird.alive_count-=1
 
-            # Since bird is not a point (has width)
-            # we ensure that colliderect fires
-            # only once per pipe
+            '''
+            Since bird is not a point (has width)
+            we ensure that colliderect fires
+            only once per pipe
+            '''
+
             if nearest_pipe[0].rect.x - self.rect.x > SPACEBETWEENPIPES / 2:
                 self.passed_pipe=False
 
@@ -131,14 +139,6 @@ class Bird(pygame.sprite.Sprite):
         else:
             Bird.bird_not_jump_count+=1
             print('Hasn\'t jumped: ', Bird.bird_not_jump_count)
-
-    def mutateBird(self):
-        if random.uniform(0,1)<=0.05:
-            self.genome.mutate_add_connection()
-        if random.uniform(0,1)<=0.03:
-            self.genome.mutate_add_node()
-        self.phenotype = neat.Neural_Network(self.genome)
-
 
 class Pipe(pygame.sprite.Sprite):
     pipes_count = 0
@@ -242,7 +242,9 @@ def main():
 
 def spawn_birds():
     for _ in range(POPULATION_SIZE):
-        POPULATION.add(Bird(PLAYERS_DICT[RED][UP], neat.Genome(3,1)))
+        bird = Bird(PLAYERS_DICT[RED][UP]
+        POPULATION.add(bird)
+        neat.Species.assign_genome_to_spieces(bird.genome)
 
 def spawn_pipes():
     PIPES.empty()
@@ -251,16 +253,25 @@ def spawn_pipes():
         PIPES.add(Pipe(DOWN))
         PIPES.add(Pipe(UP))
 
-def reset_birds():
+def epoch():
     reset_bird_static_var()
+    neat.Species.assign_species_representatives()
     for bird in POPULATION.sprites():
-        bird.rect.x = (WINDOWWIDTH-bird.rect.width)/2
-        bird.rect.y = (WINDOWHEIGHT-bird.rect.height)/2
-        bird.alive=True
-        bird.velocity=1
-        bird.bird_wings_state = UP
-        bird.passed_pipe=False
-        bird.genome.fitness = 0
+        neat.Species.assign_genome_to_spieces(bird.genome)
+    neat.Species.adjustFitnesses()
+    neat.Species.computeHowManyOffspringToSpawn()
+
+
+
+
+def reset_bird(bird):
+    bird.rect.x = (WINDOWWIDTH-bird.rect.width)/2
+    bird.rect.y = (WINDOWHEIGHT-bird.rect.height)/2
+    bird.alive=True
+    bird.velocity=1
+    bird.bird_wings_state = UP
+    bird.passed_pipe=False
+    bird.genome.fitness = 0
 
 def reset_pipe_static_var():
     Pipe.pipes_count = 0
