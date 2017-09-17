@@ -338,7 +338,6 @@ class Species(object):
         current_number_of_offspring = 0
         for species, offspring_to_spawn in zip(Species.species_list,Species.species_offspring_to_spawn):
             offspring_to_spawn = int(round(offspring_to_spawn))
-            #print(offspring_to_spawn)
             offspring = species[0]
             best_choosed=True
             while offspring_to_spawn!=0 and current_number_of_offspring < number_of_offspring:
