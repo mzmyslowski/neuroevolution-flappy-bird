@@ -243,15 +243,20 @@ def spawn_pipes():
 
 def epoch():
     len_sum = 0
-    for species in neat.Species.species_list:
-        len_sum+=len(species)
-    print(len_sum)
+    #for species in neat.Species.species_list:
+    #    len_sum+=len(species)
+    #print(len_sum)
     neat.Species.assign_species_representatives()
+    print('Representatives assigned.')
     for bird in POPULATION.sprites():
         neat.Species.assign_genome_to_spieces(bird.genome)
+    print('Genomes assigned.')
     neat.Species.adjustFitnesses()
+    print('Fitnesses adjusted.')
     neat.Species.computeHowManyOffspringToSpawn()
+    print('Spawn levels calculated.')
     new_genomes = neat.Species.getNewGenomes(POPULATION_SIZE)
+    print('New genomes created.')
     POPULATION.empty()
     for genome in new_genomes:
         POPULATION.add(Bird(PLAYERS_DICT[RED][UP],genome))
