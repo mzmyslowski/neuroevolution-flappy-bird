@@ -47,7 +47,7 @@ class Genome(object):
             'type': node_type,
             'innovation': Genome.get_innovation_id(gene_type='node',node_id=node_id)
         }
-        self.node_genes.append(new_node)
+        self.node_genes = Genome.get_sorted_genes_with_new_insertion(new_node,self.node_genes)
         return new_node
 
     def add_connection(self, in_node_id, out_node_id, weight=None):
@@ -59,9 +59,23 @@ class Genome(object):
             'state': 'enabled',
             'innovation': innovation_number
         }
-        self.connection_genes.append(new_connection)
+
+        self.connection_genes = Genome.get_sorted_genes_with_new_insertion(new_connection,self.connection_genes)
         self.connection_matrix[in_node_id,out_node_id] = innovation_number
         return new_connection
+
+    @staticmethod
+    def get_sorted_genes_with_new_insertion(new,genes):
+        new_genes = []
+        i=0
+        while i<len(genes) and genes[i]['innovation']<new['innovation']:
+            new_genes.append(genes[i])
+            i+=1
+        new_genes.append(new)
+        while i < len(genes):
+            new_genes.append(genes[i])
+            i+=1
+        return new_genes
 
     def mutate_add_node(self):
         if random.uniform(0,1)<=Genome.add_node_rate:
@@ -181,41 +195,34 @@ class Offspring(Genome):
         self.connection_genes = []
         parent1_connection_genes = Parent1.connection_genes
         parent2_connection_genes = Parent2.connection_genes
-        i, j = (0,0)
-        while i < len(parent1_connection_genes) and j < len(parent2_connection_genes):
+        i, j = 0,0
+        while i < len(parent1_connection_genes) or j < len(parent2_connection_genes):
             # In this situation we either have matching genes or disjoint genes
-            if parent1_connection_genes[i]['innovation']==parent2_connection_genes[j]['innovation']:
-                # Now we are hadnling matching genes, choosing randomly one of them
-                random_index = np.random.randint(1, 3)
-                if random_index == 1:
+            if i<len(parent1_connection_genes) and j<len(parent2_connection_genes):
+                if parent1_connection_genes[i]['innovation']==parent2_connection_genes[j]['innovation']:
+                    # Now we are hadnling matching genes, choosing randomly one of them
+                    random_index = np.random.randint(1, 3)
+                    if random_index == 1:
+                        self.connection_genes.append(parent1_connection_genes[i])
+                    elif random_index == 2:
+                        self.connection_genes.append(parent2_connection_genes[j])
+                    i+=1
+                    j+=1
+                elif parent1_connection_genes[i]['innovation']<parent2_connection_genes[j]['innovation']:
+                    # We are taking disjoint gene from parent1
                     self.connection_genes.append(parent1_connection_genes[i])
-                elif random_index == 2:
+                    i+=1
+                else:
+                    # We are taking disjoint gene from parent2
                     self.connection_genes.append(parent2_connection_genes[j])
-                i+=1
-                j+=1
-            elif parent1_connection_genes[i]['innovation']<parent2_connection_genes[j]['innovation']:
-                # We are taking disjoint gene from parent1
-                self.connection_genes.append(parent1_connection_genes[i])
-                i+=1
+                    j+=1
             else:
-                # We are taking disjoint gene from parent2
-                self.connection_genes.append(parent2_connection_genes[j])
-                j+=1
-
-        max_innovation_number = self.connection_genes[-1]['innovation']
-
-        while i<len(parent1_connection_genes):
-            parent1_connection_gene = parent1_connection_genes[i]
-            if parent1_connection_gene['innovation']>max_innovation_number:
-                self.connection_genes.append(parent1_connection_gene)
-            i+=1
-
-        while j<len(parent2_connection_genes):
-            parent2_connection_gene = parent2_connection_genes[j]
-            if parent2_connection_gene['innovation']>max_innovation_number:
-                self.connection_genes.append(parent2_connection_gene)
-            j+=1
-
+                if i==len(parent1_connection_genes):
+                    self.connection_genes.extend(parent2_connection_genes[j:])
+                else:
+                    self.connection_genes.extend(parent1_connection_genes[i:])
+                i=len(parent1_connection_genes)
+                j=len(parent2_connection_genes)
 
     def init_connection_matrix(self):
         max_value = self.getMaxValueInConnectionGenesIds()
@@ -253,14 +260,12 @@ class Species(object):
         disjoint = 0
         matching = 0
         weight_difference = 0
-        i=0
-        j=0
+        i, j = 0, 0
         while i < len(genome1_connection_genes) or j < len(genome2_connection_genes):
             if i<len(genome1_connection_genes) and j<len(genome2_connection_genes):
                 # Now we have either matching or disjoint genes
                 if genome1_connection_genes[i]['innovation']<genome2_connection_genes[j]['innovation']:
                     # We have disjoint genes in genome1
-                    disjoint+=1
                     i+=1
                 elif genome2_connection_genes[j]['innovation']<genome1_connection_genes[i]['innovation']:
                     # We have disjoint genes in genome2
@@ -268,7 +273,7 @@ class Species(object):
                     j+=1
                 else:
                     # Now we have matching genes
-                    weight_difference = (genome1_connection_genes[i]['weight']-genome2_connection_genes[j]['weight'])
+                    weight_difference += (genome1_connection_genes[i]['weight']-genome2_connection_genes[j]['weight'])
                     matching+=1
                     i+=1
                     j+=1
@@ -277,7 +282,6 @@ class Species(object):
                 excess+=1
                 i+=1
                 j+=1
-
         return Species.c1*excess/Species.N + Species.c2*disjoint/Species.N + Species.c3*weight_difference/matching
 
     @staticmethod
@@ -312,6 +316,7 @@ class Species(object):
     @staticmethod
     def assign_species_representatives():
         Species.species_list = Species.select_species_representatives()
+        print('new species_list length: ', len(Species.species_list))
 
     @staticmethod
     def adjustFitnesses():
@@ -350,6 +355,7 @@ class Species(object):
                             random_genome_2 = Species.getRandomGenomeFromSpecies(species)
                             try_to_mate_times-=1
                         if random_genome_1.genome_id!=random_genome_2.genome_id:
+                            print('genome ', current_number_of_offspring+1, 'will become offspring' )
                             offspring=Offspring(random_genome_1,random_genome_2)
                         else:
                             offspring=random_genome_1
@@ -364,7 +370,8 @@ class Species(object):
                 best_choosed = False
                 offspring_to_spawn-=1
                 current_number_of_offspring+=1
-        print(len(new_genomes))
+                print('Current number of offspring: ', current_number_of_offspring)
+        print('new_genomes length: ', len(new_genomes))
         return new_genomes
 
 
