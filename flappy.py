@@ -9,9 +9,9 @@ POPULATION_SIZE = 50
 SPACEBETWEENPIPES = 200
 PIPEGAPSIZE  = 100
 PIPESVELOCITY = 3
-JUMP_VELOCITY = -1.1
+JUMP_VELOCITY = -3
 GRAVITY = 1
-NUMBEROFINPUTS = 3
+NUMBEROFINPUTS = 2
 NUMBEROFOUTPUTS = 1
 RED, BLUE, YELLOW = 'red', 'blue', 'yellow'
 BIRDS_COLORS = (RED, BLUE, YELLOW)
@@ -20,6 +20,9 @@ WINGS_DIRECTIONS = (UP, MID, DOWN)
 POPULATION = pygame.sprite.Group()
 PIPES = pygame.sprite.Group()
 epochs_count=0
+MAX_VELOCITY = 10
+MIN_VELOCITY = -8
+PROBABILITYOFJUMPTHRESHOLD = 0.9
 
 # dictionary of players and their states
 PLAYERS_DICT = {
@@ -64,19 +67,24 @@ class Bird(pygame.sprite.Sprite):
         self.rect.x = (WINDOWWIDTH-self.rect.width)/2
         self.rect.y = (WINDOWHEIGHT-self.rect.height)/2
         self.alive = True
-        self.velocity = 1
+        self.velocity = JUMP_VELOCITY
         self.genome = genome
         self.phenotype = neat.Neural_Network(self.genome)
         self.bird_wings_state = UP
         self.passed_pipe = False
+        self.jumped=False
 
     def update(self):
-        if self.alive == True and self.rect.colliderect(CELLING_RECT)==False:
-            self.moveBird()
+        if self.alive == True:
+            self.genome.increase_fitness()
+            self.jumped=False
+            if self.velocity > MIN_VELOCITY:
+                self.moveBird()
             self.animateBirdImage()
-            self.velocity+=GRAVITY
-            self.rect.y+=self.velocity
-            if self.rect.colliderect(BASE_RECT):
+            if self.velocity < MAX_VELOCITY and not self.jumped:
+                self.velocity+=GRAVITY
+                self.rect.y+=self.velocity
+            if self.rect.colliderect(BASE_RECT) or self.rect.colliderect(CELLING_RECT):
                 self.alive = False
                 Bird.alive_count -= 1
             nearest_pipe = Pipe.getNearestPipe(self.rect.x)
@@ -89,44 +97,37 @@ class Bird(pygame.sprite.Sprite):
             we ensure that colliderect fires
             only once per pipe
             '''
+            #if nearest_pipe[0].rect.x - self.rect.x > SPACEBETWEENPIPES / 2:
+            #    self.passed_pipe=False
 
-            if nearest_pipe[0].rect.x - self.rect.x > SPACEBETWEENPIPES / 2:
-                self.passed_pipe=False
-
-            if self.rect.colliderect(nearest_pipe[0].pass_pipe_rect) and self.passed_pipe==False:
-                self.passed_pipe=True
-                self.genome.increase_fitness()
+            #if self.rect.colliderect(nearest_pipe[0].pass_pipe_rect) and self.passed_pipe==False:
+            #    self.passed_pipe=True
+            #    self.genome.increase_fitness()
         else:
             self.rect.x-=PIPESVELOCITY
 
     def jump(self):
         self.velocity+=JUMP_VELOCITY
-        self.rect.y+=JUMP_VELOCITY
 
     def animateBirdImage(self):
-        self.changeBirdsWingsState()
         if self.bird_wings_state == UP:
             self.image = pygame.image.load(PLAYERS_DICT[RED][MID])
+            self.bird_wings_state = MID
         elif self.bird_wings_state == MID:
             self.image = pygame.image.load(PLAYERS_DICT[RED][DOWN])
+            self.bird_wings_state = DOWN
         elif self.bird_wings_state == DOWN:
             self.image = pygame.image.load(PLAYERS_DICT[RED][UP])
-
-    def changeBirdsWingsState(self):
-        if self.bird_wings_state == UP:
-            return MID
-        elif self.bird_wings_state == MID:
-            return DOWN
-        elif self.bird_wings_state == DOWN:
-            return UP
+            self.bird_wings_state = UP
 
     def moveBird(self):
         nearest_pipe = Pipe.getNearestPipe(self.rect.x)[0]
         distanceToPipe = Pipe.getDistanceToPipe(self.rect.x, nearest_pipe)
         yOfPipeGap = Pipe.getYOfPipeGap(nearest_pipe)
-        probabilityOfJump=self.phenotype.forward([distanceToPipe,yOfPipeGap,self.rect.y])
-        if probabilityOfJump[0]>=0.5:
+        probabilityOfJump=self.phenotype.forward([distanceToPipe,yOfPipeGap-self.rect.y])
+        if probabilityOfJump[0]>=PROBABILITYOFJUMPTHRESHOLD:
             self.jump()
+            self.jumped=True
 
 class Pipe(pygame.sprite.Sprite):
     pipes_count = 0
@@ -176,7 +177,7 @@ class Pipe(pygame.sprite.Sprite):
 
 
     def getRandomYForPipe(self):
-        return random.randint(-self.rect.height/2,-1)
+        return random.randint(WINDOWHEIGHT-2*self.rect.height-PIPEGAPSIZE+1,-1)
 
     def updatePipesCount(self):
         Pipe.pipes_count+=1
@@ -261,6 +262,7 @@ def epoch():
     POPULATION.empty()
     for genome in new_genomes:
         POPULATION.add(Bird(PLAYERS_DICT[RED][UP],genome))
+    print(Bird.alive_count)
 
 def reset_pipe_static_var():
     Pipe.pipes_count = 0
@@ -276,7 +278,7 @@ def play():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-        if Bird.alive_count==0:
+        if Bird.alive_count<=0:
            return
         POPULATION.update()
         PIPES.update()

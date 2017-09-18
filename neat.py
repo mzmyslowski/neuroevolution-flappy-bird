@@ -114,19 +114,22 @@ class Genome(object):
                 connection['weight'] = random.uniform(-1,1)
 
     def get_random_unconnected_genes(self):
-        # We get indices of unconnected nodes
-        # with an exception that sensor_units
-        # can't be treate as out units
-        connected_indices = np.argwhere(self.connection_matrix[:,self.number_of_sensor_units:]==0)
+        # We flag connections going into sensors by -2
+        self.connection_matrix[:,:self.number_of_sensor_units]=-2
+        connected_indices = np.argwhere(self.connection_matrix==0)
         if len(connected_indices)==0:
             return None
         else:
             random_index = np.random.randint(0, connected_indices.shape[0])
+            #print('In: ',connected_indices[random_index][0],',Out: ',connected_indices[random_index][1])
             return (connected_indices[random_index][0],connected_indices[random_index][1])
 
     def get_random_connected_genes(self):
+        # -2 is for connections going into sensor
         # -1 is for disabled
         # 0 is for connected
+        # We flag connections going into sensors by -2
+        self.connection_matrix[:,:self.number_of_sensor_units]=-2
         connected_indices = np.argwhere((self.connection_matrix>0))
         random_index = np.random.randint(0, connected_indices.shape[0])
         return (connected_indices[random_index][0],connected_indices[random_index][1])
@@ -324,8 +327,7 @@ class Species(object):
         for species in Species.species_list:
             adjusted_fitness_sum=0
             for genome in species:
-                genome.fitness=Species.compute_adjusted_fitness(genome, len(species))
-                adjusted_fitness_sum+=genome.fitness
+                adjusted_fitness_sum+=Species.compute_adjusted_fitness(genome, len(species))
             Species.species_average_adjusted_fitness_list.append(adjusted_fitness_sum/len(species))
 
     @staticmethod
@@ -344,6 +346,9 @@ class Species(object):
         for species, offspring_to_spawn in zip(Species.species_list,Species.species_offspring_to_spawn):
             offspring_to_spawn = int(round(offspring_to_spawn))
             offspring = species[0]
+            for best in species:
+                if best.fitness>offspring.fitness:
+                    offspring = best
             best_choosed=True
             while offspring_to_spawn!=0 and current_number_of_offspring < number_of_offspring:
                 if best_choosed==False and len(species)!=1:
@@ -355,7 +360,6 @@ class Species(object):
                             random_genome_2 = Species.getRandomGenomeFromSpecies(species)
                             try_to_mate_times-=1
                         if random_genome_1.genome_id!=random_genome_2.genome_id:
-                            print('genome ', current_number_of_offspring+1, 'will become offspring' )
                             offspring=Offspring(random_genome_1,random_genome_2)
                         else:
                             offspring=random_genome_1
@@ -365,13 +369,13 @@ class Species(object):
                 offspring.mutate_add_connection()
                 offspring.mutate_add_node()
                 offspring.mutate_perturb_weights()
-
                 new_genomes.append(offspring)
                 best_choosed = False
                 offspring_to_spawn-=1
                 current_number_of_offspring+=1
-                print('Current number of offspring: ', current_number_of_offspring)
         print('new_genomes length: ', len(new_genomes))
+        for genome in new_genomes:
+            print(genome.connection_genes)
         return new_genomes
 
 
