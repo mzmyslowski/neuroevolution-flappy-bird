@@ -9,7 +9,7 @@ POPULATION_SIZE = 50
 SPACEBETWEENPIPES = 200
 PIPEGAPSIZE  = 100
 PIPESVELOCITY = 3
-JUMP_VELOCITY = -1
+JUMP_VELOCITY = -1.1
 GRAVITY = 1
 NUMBEROFINPUTS = 3
 NUMBEROFOUTPUTS = 1
@@ -71,7 +71,7 @@ class Bird(pygame.sprite.Sprite):
         self.passed_pipe = False
 
     def update(self):
-        if self.alive == True:
+        if self.alive == True and self.rect.colliderect(CELLING_RECT)==False:
             self.moveBird()
             self.animateBirdImage()
             self.velocity+=GRAVITY
@@ -176,7 +176,7 @@ class Pipe(pygame.sprite.Sprite):
 
 
     def getRandomYForPipe(self):
-        return random.randint(-self.rect.height/2,-15)
+        return random.randint(-self.rect.height/2,-1)
 
     def updatePipesCount(self):
         Pipe.pipes_count+=1
@@ -209,11 +209,12 @@ class Pipe(pygame.sprite.Sprite):
 
 
 def main():
-    global FPSCLOCK, DISPLAYSURF, BASE_RECT, BACKGROUND, RED_BIRD_IMAGE,PIPE_IMAGE
+    global FPSCLOCK, DISPLAYSURF, BASE_RECT, BACKGROUND, RED_BIRD_IMAGE,PIPE_IMAGE, CELLING_RECT
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH,WINDOWHEIGHT))
-    BASE_RECT = pygame.draw.rect(DISPLAYSURF,(0,0,0),(0,WINDOWHEIGHT,WINDOWWIDTH/2,WINDOWHEIGHT/2))
+    BASE_RECT = pygame.draw.rect(DISPLAYSURF,(0,0,0),(0,WINDOWHEIGHT,WINDOWWIDTH,WINDOWHEIGHT))
+    CELLING_RECT = pygame.draw.rect(DISPLAYSURF,(0,0,0),(0,-1,WINDOWWIDTH,1))
     pygame.display.set_caption('Flappy Birds Neuroevolution')
 
     BACKGROUND = pygame.image.load(BACKGROUNDS_LIST[0])
