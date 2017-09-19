@@ -1,2 +1,2 @@
 # neuroevolution-flappy-bird
-Building Flappy Bird from scratch in Python and then applying Neuroevolution
+The project is still under development. The newest version can be found in the development branch.
