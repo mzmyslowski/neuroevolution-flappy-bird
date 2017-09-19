@@ -22,7 +22,7 @@ PIPES = pygame.sprite.Group()
 epochs_count=0
 MAX_VELOCITY = 10
 MIN_VELOCITY = -8
-PROBABILITYOFJUMPTHRESHOLD = 0.99
+PROBABILITYOFJUMPTHRESHOLD = 0.5
 
 # dictionary of players and their states
 PLAYERS_DICT = {
@@ -121,15 +121,16 @@ class Bird(pygame.sprite.Sprite):
             self.bird_wings_state = UP
 
     def moveBird(self):
-        nearest_pipe = Pipe.getNearestPipe(self.rect.x+self.rect.width)[0]
+        nearest_pipe = Pipe.getNearestPipe(self.rect.x)[0]
         # We measure distance to pipe starting from back of a bird
         # to the end of the nearest pipe
-        distanceToPipe = Pipe.getDistanceToPipe(self.rect.x, nearest_pipe)
-        yOfPipeGap = Pipe.getYOfPipeGap(nearest_pipe)
-        #print('Bird ', self.genome.genome_id, ' y: ', self.rect.y)
-        #print('Bird ', self.genome.genome_id, ' nearest pipe gap y: ', yOfPipeGap)
-        print('Bird ', self.genome.genome_id, ' distance to down pipe: ', yOfPipeGap-self.rect.y)
-        probabilityOfJump=self.phenotype.forward([1,distanceToPipe,yOfPipeGap-self.rect.y])
+        distanceToPipeInX = Pipe.getDistanceToPipe(self.rect.x, nearest_pipe)
+        #print('Bird ', self.genome.genome_id, ' distance to the nearest pipe: ', distanceToPipeInX)
+        # We measure distance as a difference between of top part of down
+        # pipe and bottom part of a bird
+        distanceToGapInY = nearest_pipe.rect.y-(self.rect.y+self.rect.height)
+        #print('Bird ', self.genome.genome_id, ' distance to down pipe: ', distanceToGapInY)
+        probabilityOfJump=self.phenotype.forward([1,distanceToPipeInX,distanceToGapInY])
         if probabilityOfJump[0]>=PROBABILITYOFJUMPTHRESHOLD:
             self.jump()
             self.jumped=True
