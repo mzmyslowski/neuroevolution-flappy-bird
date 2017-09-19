@@ -276,7 +276,7 @@ class Species(object):
                     j+=1
                 else:
                     # Now we have matching genes
-                    weight_difference += (genome1_connection_genes[i]['weight']-genome2_connection_genes[j]['weight'])
+                    weight_difference += abs((genome1_connection_genes[i]['weight']-genome2_connection_genes[j]['weight']))
                     matching+=1
                     i+=1
                     j+=1
