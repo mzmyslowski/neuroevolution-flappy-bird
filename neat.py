@@ -9,7 +9,8 @@ class Genome(object):
     global_genomes_id = 0
     add_connection_rate = 0.05
     add_node_rate = 0.03
-    change_weight_rate = 0.9
+    mutate_weight_rate = 0.9
+    change_weight_rate = 0.1
     max_weight_perturbation = 0.5
 
     def __init__(self, number_of_sensor_units, number_of_output_units):
@@ -109,10 +110,12 @@ class Genome(object):
 
     def mutate_perturb_weights(self):
         for connection in self.connection_genes:
-            if random.uniform(0,1) < Genome.change_weight_rate:
-                connection['weight'] += random.uniform(-1,1)*Genome.max_weight_perturbation
-            else:
-                connection['weight'] = random.uniform(-1,1)
+            if random.uniform(0,1) < Genome.mutate_weight_rate:
+                if random.uniform(0,1) < Genome.change_weight_rate:
+                    connection['weight'] = random.uniform(-1,1)
+                else:
+                    connection['weight'] += random.uniform(-1,1)*Genome.max_weight_perturbation
+
 
     def get_random_unconnected_genes(self):
         # We flag connections going into sensors by -2
@@ -249,8 +252,7 @@ class Population(object):
     c1 = 1.0
     c2 = 1.0
     c3 = 0.4
-    N = 1
-    threshold = 3.0
+    threshold = 3
     crossover_rate = 0.75
 
     @staticmethod
@@ -283,7 +285,8 @@ class Population(object):
                 excess+=1
                 i+=1
                 j+=1
-        return Population.c1*excess/Population.N + Population.c2*disjoint/Population.N + Population.c3*weight_difference/matching
+        max_number_of_genes = max(len(genome1_connection_genes),len(genome2_connection_genes))
+        return Population.c1*excess/max_number_of_genes + Population.c2*disjoint/max_number_of_genes + Population.c3*weight_difference/matching
 
     @staticmethod
     def compute_adjusted_fitness(genome, species_length):
@@ -316,9 +319,11 @@ class Population(object):
 
     @staticmethod
     def remove_extinct_species():
+        new_species = []
         for species in Population.species_list:
-            if len(species.genomes)==0:
-                Population.species_list.remove(species)
+            if len(species.genomes)!=0:
+                new_species.append(species)
+        Population.species_list=new_species
 
     @staticmethod
     def adjustFitnesses():
@@ -438,10 +443,10 @@ class Neural_Network(object):
     def forward(self, x):
         # We first set the output of sensor neurons
         # to be equal to x, we assume that
-        # sensor units are first
+        # sensor units and bias are first
         current_neuron_id = 0
 
-        while self.neurons[current_neuron_id]['type']=='sensor':
+        while self.neurons[current_neuron_id]['type']=='sensor' or self.neurons[current_neuron_id]['type']=='bias':
             self.neurons[current_neuron_id]['output']=x[current_neuron_id]
             current_neuron_id+=1
 
@@ -455,7 +460,6 @@ class Neural_Network(object):
                 neuronOutput = connectionIn['in']['output']
                 sumToActivate+= weight * neuronOutput
 
-            # Not sure if this works
             current_neuron['output']=self.modified_sigmoid(sumToActivate)
 
             if current_neuron['type']=='output':
