@@ -5,7 +5,7 @@ FPS = 30
 WINDOWWIDTH = 288
 WINDOWHEIGHT = 512
 PIPESSPAWNED = 4
-POPULATION_SIZE = 15
+POPULATION_SIZE = 50
 SPACEBETWEENPIPES = 200
 PIPEGAPSIZE  = 100
 PIPESVELOCITY = 3
@@ -84,7 +84,7 @@ class Bird(pygame.sprite.Sprite):
             self.animateBirdImage()
             if self.velocity < MAX_VELOCITY and not self.jumped:
                 self.velocity+=GRAVITY
-                self.rect.y+=self.velocity
+            self.rect.y+=self.velocity
             if self.rect.colliderect(BASE_RECT) or self.rect.colliderect(CELLING_RECT):
                 self.alive = False
                 Bird.alive_count -= 1
@@ -260,6 +260,7 @@ def epoch():
     for bird in POPULATION.sprites():
         neat.Population.assign_genome_to_spieces(bird.genome)
     print('Genomes assigned.')
+    # We ensure that there is no species with 0 genomes
     neat.Population.remove_extinct_species()
     print('Number of species: ', len(neat.Population.species_list))
     neat.Population.adjustFitnesses()
