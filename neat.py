@@ -22,6 +22,7 @@ class Genome(object):
         self.init_connection_genes()
 
         self.fitness = 1
+        self.adjusted_fitness = 0
 
     def init_node_genes(self):
         self.node_genes = []
@@ -243,17 +244,14 @@ class Offspring(Genome):
 
 
 
-class Species(object):
+class Population(object):
     species_list = []
-    species_average_adjusted_fitness_list = []
-    species_offspring_to_spawn = []
     c1 = 1.0
     c2 = 1.0
     c3 = 0.4
     N = 1
     threshold = 3.0
     crossover_rate = 0.75
-
 
     @staticmethod
     def measure_compatibility_distance(Genome1, Genome2):
@@ -285,7 +283,7 @@ class Species(object):
                 excess+=1
                 i+=1
                 j+=1
-        return Species.c1*excess/Species.N + Species.c2*disjoint/Species.N + Species.c3*weight_difference/matching
+        return Population.c1*excess/Population.N + Population.c2*disjoint/Population.N + Population.c3*weight_difference/matching
 
     @staticmethod
     def compute_adjusted_fitness(genome, species_length):
@@ -294,75 +292,70 @@ class Species(object):
     @staticmethod
     def assign_genome_to_spieces(genome):
         create_new_species=True
-        for species in Species.species_list:
-            if genome.genome_id==species[0].genome_id:
+        for species in Population.species_list:
+            if Population.measure_compatibility_distance(genome, species.representative) < Population.threshold:
                 create_new_species=False
-                break
-            elif Species.measure_compatibility_distance(genome, species[0]) < Species.threshold:
-                create_new_species=False
-                species.append(genome)
+                species.add_genome(genome)
                 break
         if create_new_species==True:
-            Species.species_list.append([genome])
-
-    @staticmethod
-    def select_species_representatives():
-        selected_representatives = []
-        for species in Species.species_list:
-            best = species[0]
-            for genome in species:
-                if best.fitness < genome.fitness:
-                    best = genome
-            selected_representatives.append([best])
-        return selected_representatives
+            Population.species_list.append(Species(genome))
 
     @staticmethod
     def assign_species_representatives():
-        Species.species_list = Species.select_species_representatives()
-        print('new species_list length: ', len(Species.species_list))
+        for species in Population.species_list:
+            best = species.genomes[0]
+            for genome in species.genomes:
+                if best.fitness < genome.fitness:
+                    best = genome
+            species.representative=best
+
+    @staticmethod
+    def remove_old_genomes_from_every_spieces():
+        for species in Population.species_list:
+            species.genomes = []
+
+    @staticmethod
+    def remove_extinct_species():
+        for species in Population.species_list:
+            if len(species.genomes)==0:
+                Population.species_list.remove(species)
 
     @staticmethod
     def adjustFitnesses():
-        Species.species_average_adjusted_fitness_list = []
-        for species in Species.species_list:
+        for species in Population.species_list:
             adjusted_fitness_sum=0
-            for genome in species:
-                adjusted_fitness_sum+=Species.compute_adjusted_fitness(genome, len(species))
-            Species.species_average_adjusted_fitness_list.append(adjusted_fitness_sum/len(species))
+            for genome in species.genomes:
+                genome.adjusted_fitness=Population.compute_adjusted_fitness(genome, len(species.genomes))
+                adjusted_fitness_sum+=genome.adjusted_fitness
+            species.average_adjusted_fitness = adjusted_fitness_sum/len(species.genomes)
 
     @staticmethod
     def computeHowManyOffspringToSpawn():
-        Species.species_offspring_to_spawn = []
-        for species, average in zip(Species.species_list, Species.species_average_adjusted_fitness_list):
+        for species in Population.species_list:
             species_offspring_to_spawn_sum = 0
-            for genome in species:
-                species_offspring_to_spawn_sum += genome.fitness/average
-            Species.species_offspring_to_spawn.append(species_offspring_to_spawn_sum)
+            for genome in species.genomes:
+                species_offspring_to_spawn_sum += genome.adjusted_fitness/species.average_adjusted_fitness
+            species.offspring_to_spawn = species_offspring_to_spawn_sum
 
     @staticmethod
     def getNewGenomes(number_of_offspring):
         new_genomes = []
         current_number_of_offspring = 0
-        for species, offspring_to_spawn in zip(Species.species_list,Species.species_offspring_to_spawn):
-            offspring_to_spawn = int(round(offspring_to_spawn))
-            offspring = species[0]
-            for best in species:
-                if best.fitness>offspring.fitness:
-                    offspring = best
+        for species in Population.species_list:
+            offspring_to_spawn = int(round(species.offspring_to_spawn))
+            offspring = species.best
             best_choosed=True
             while offspring_to_spawn!=0 and current_number_of_offspring < number_of_offspring:
-                if best_choosed==False and len(species)!=1:
-                    random_genome_1 = Species.getRandomGenomeFromSpecies(species)
-                    if random.uniform(0,1) < Species.crossover_rate:
+                if best_choosed==False and len(species.genomes)!=1:
+                    random_genome_1 = Population.getRandomGenomeFromSpecies(species)
+                    if random.uniform(0,1) < Population.crossover_rate:
                         try_to_mate_times = 5
-                        random_genome_2 = Species.getRandomGenomeFromSpecies(species)
+                        random_genome_2 = Population.getRandomGenomeFromSpecies(species)
                         while random_genome_1.genome_id==random_genome_2.genome_id and try_to_mate_times!=0:
-                            random_genome_2 = Species.getRandomGenomeFromSpecies(species)
+                            random_genome_2 = Population.getRandomGenomeFromSpecies(species)
                             try_to_mate_times-=1
                         if random_genome_1.genome_id!=random_genome_2.genome_id:
                             offspring=Offspring(random_genome_1,random_genome_2)
-                        else:
-                            offspring=random_genome_1
                     else:
                         offspring=random_genome_1
 
@@ -374,15 +367,29 @@ class Species(object):
                 offspring_to_spawn-=1
                 current_number_of_offspring+=1
         print('new_genomes length: ', len(new_genomes))
-        for genome in new_genomes:
-            print(genome.connection_genes)
+        #for genome in new_genomes:
+        #    print(genome.connection_genes)
         return new_genomes
 
 
 
     @staticmethod
     def getRandomGenomeFromSpecies(species):
-        return species[random.randint(0,len(species)-1)]
+        return species.genomes[random.randint(0,len(species.genomes)-1)]
+
+class Species(object):
+
+    def __init__(self, representative):
+        self.representative = representative
+        self.best = representative
+        self.genomes = [self.representative]
+        self.average_adjusted_fitness = 0
+        self.offspring_to_spawn = 0
+
+    def add_genome(self, genome):
+        self.genomes.append(genome)
+        if genome.fitness > self.best.fitness:
+            self.best=genome
 
 class Neural_Network(object):
 
