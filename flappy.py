@@ -5,12 +5,12 @@ FPS = 30
 WINDOWWIDTH = 288
 WINDOWHEIGHT = 512
 PIPESSPAWNED = 4
-POPULATION_SIZE = 50
+POPULATION_SIZE = 15
 SPACEBETWEENPIPES = 200
 PIPEGAPSIZE  = 100
 PIPESVELOCITY = 3
 JUMP_VELOCITY = -3
-GRAVITY = 1
+GRAVITY = 1.5
 NUMBEROFINPUTS = 3
 NUMBEROFOUTPUTS = 1
 RED, BLUE, YELLOW = 'red', 'blue', 'yellow'
@@ -23,6 +23,7 @@ epochs_count=0
 MAX_VELOCITY = 10
 MIN_VELOCITY = -8
 PROBABILITYOFJUMPTHRESHOLD = 0.5
+generation=0
 
 # dictionary of players and their states
 PLAYERS_DICT = {
@@ -239,7 +240,7 @@ def spawn_birds():
     for _ in range(POPULATION_SIZE):
         bird = Bird(PLAYERS_DICT[RED][UP],neat.Genome(NUMBEROFINPUTS,NUMBEROFOUTPUTS))
         POPULATION.add(bird)
-        neat.Species.assign_genome_to_spieces(bird.genome)
+        neat.Population.assign_genome_to_spieces(bird.genome)
 
 def spawn_pipes():
     PIPES.empty()
@@ -249,25 +250,28 @@ def spawn_pipes():
         PIPES.add(Pipe(UP))
 
 def epoch():
-    len_sum = 0
-    #for species in neat.Species.species_list:
-    #    len_sum+=len(species)
-    #print(len_sum)
-    neat.Species.assign_species_representatives()
+    global generation
+    generation+=1
+    print('Generation: ', generation)
+    neat.Population.assign_species_representatives()
     print('Representatives assigned.')
+    neat.Population.remove_old_genomes_from_every_spieces()
+    print('Old genomes removed.')
     for bird in POPULATION.sprites():
-        neat.Species.assign_genome_to_spieces(bird.genome)
+        neat.Population.assign_genome_to_spieces(bird.genome)
     print('Genomes assigned.')
-    neat.Species.adjustFitnesses()
+    neat.Population.remove_extinct_species()
+    print('Number of species: ', len(neat.Population.species_list))
+    neat.Population.adjustFitnesses()
     print('Fitnesses adjusted.')
-    neat.Species.computeHowManyOffspringToSpawn()
-    print('Spawn levels calculated.')
-    new_genomes = neat.Species.getNewGenomes(POPULATION_SIZE)
+    neat.Population.computeHowManyOffspringToSpawn()
+    print('Offspring to spawn calculated.')
+    new_genomes = neat.Population.getNewGenomes(POPULATION_SIZE)
     print('New genomes created.')
     POPULATION.empty()
     for genome in new_genomes:
         POPULATION.add(Bird(PLAYERS_DICT[RED][UP],genome))
-    print(Bird.alive_count)
+    print('New phenotypes created.')
 
 def reset_pipe_static_var():
     Pipe.pipes_count = 0
