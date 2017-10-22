@@ -25,16 +25,15 @@ In order to see the results of applying NEAT to Flappy Bird:
 ```
 git clone https://github.com/schizoburger/neuroevolution-flappy-bird.git
 ```
-2. Open terminal and navigate to the folder containing cloned repository
+2. Open terminal and navigate to the folder containing the cloned repository
 3. Type:
 ```
 python3 flappy.py
 ```
 4. Be patient and enjoy!
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+## Important to note
+Some bird should learn successfully how to fly through gaps in pipes before 30th generation. If it's not the case, please exit the game and start it again.
 
 ## Acknowledgments
 
